@@ -102,7 +102,7 @@ model Video {
 model Logros {
   ID_Logro  Int     @id @default(autoincrement())
   Nombre    String  @unique
-  Puntaje   Number
+  Puntaje   Int
   Completado Boolean @default(false)
   ID_Usuario Int
 

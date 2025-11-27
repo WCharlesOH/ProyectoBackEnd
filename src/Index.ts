@@ -228,6 +228,24 @@ app.get("LogrosUsuario", async (req : Request, resp : Response) => {
     }
 })
 
+app.post("Actualizar_Logro", async (req : Request, resp : Response) => {
+    try {
+      const { ID_Usuario, ID_Logro, Completado} = req.body
+      const Logro = await prisma.logros.update({
+        where:{
+          ID_Logro: Number(ID_Logro),
+          ID_Usuario: Number(ID_Usuario)
+        },
+        data: {
+          Completado: Boolean(Completado)
+        }
+      })
+    } catch (err){
+      console.error(err)
+      resp.status(400).json({ error: "Error actualizando logro" })
+    }
+})
+
 //ENDPOINT PARA LA TRANSMISIÓN EN VIVO
 app.get("/api/live-url", (req: Request, res: Response) => {
   const liveUrl = process.env.LIVE_EMBED_URL
