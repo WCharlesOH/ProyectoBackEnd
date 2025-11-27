@@ -28,6 +28,7 @@ model Usuario {
 
   regalos               Regalo[]
   videos                Video[]
+  logros                Logros[]
 
   streamerSuscripciones Suscripcion[] @relation("StreamerSuscripciones")
   viewerSuscripciones   Suscripcion[] @relation("ViewerSuscripciones")
@@ -95,5 +96,15 @@ model Video {
   ID_Usuario  Int
 
   juego   Juego   @relation(fields: [ID_Juego], references: [ID_Juego])
+  usuario Usuario @relation(fields: [ID_Usuario], references: [ID])
+}
+
+model Logros {
+  ID_Logro  Int     @id @default(autoincrement())
+  Nombre    String  @unique
+  Puntaje   Number
+  Completado Boolean @default(false)
+  ID_Usuario Int
+
   usuario Usuario @relation(fields: [ID_Usuario], references: [ID])
 }
