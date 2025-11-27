@@ -3,6 +3,7 @@ import dotenv from "dotenv"
 import bodyParser from "body-parser"
 import cors from "cors"
 import { PrismaClient } from "./generated/prisma/client"
+import { count, group } from "node:console"
 
 
 dotenv.config()
@@ -208,7 +209,7 @@ app.get("/UsuariosRanking", async (req : Request, resp : Response) => {
     }
 })
 
-app.get("LogrosUsuario", async (req : Request, resp : Response) => {
+app.get("/LogrosUsuario", async (req : Request, resp : Response) => {
     try{
       const { ID_Usuario } = req.body
       const Logros = await prisma.logros.findMany({
@@ -228,7 +229,7 @@ app.get("LogrosUsuario", async (req : Request, resp : Response) => {
     }
 })
 
-app.post("Actualizar_Logro", async (req : Request, resp : Response) => {
+app.post("/Actualizar_Logro", async (req : Request, resp : Response) => {
     try {
       const { ID_Usuario, ID_Logro, Completado} = req.body
       const Logro = await prisma.logros.update({
@@ -243,6 +244,222 @@ app.post("Actualizar_Logro", async (req : Request, resp : Response) => {
     } catch (err){
       console.error(err)
       resp.status(400).json({ error: "Error actualizando logro" })
+    }
+})
+
+app.get("/Mas_Vistos", async (req: Request, res: Response) => {
+  try {
+    const streamers = await prisma.usuario.findMany({
+      where: {
+        EnVivo: true
+      },
+      take: 20,
+      select: {
+        NombreUsuario: true,
+        ImagenPerfil: true,
+        NivelStreams: true,
+        _count: {
+          streamerChat: {
+            where: {
+              Viendo: true
+            },
+          }
+        },
+        streamerChat: {
+          where: { Viendo: true },
+          select: {
+            videos: {
+              where: { Estado: true },
+              select: {
+                V_DEOs: {
+                  select: {
+                    game: {
+                      select: { Nombre: true }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    })
+    res.status(200).json(streamers)
+  } catch (err) {
+    console.error(err)
+    res.status(400).json({ error: "Error obteniendo los streamers más vistos" })
+  }
+})
+
+app.post("/Actualizar_Estado_EnVivo", async (req : Request, resp : Response) => {
+    try {
+      const { ID_Usuario, EnVivo } = req.body
+      const EstadoEnVivo = await prisma.usuario.update({
+        where: {
+          ID: Number(ID_Usuario)
+        },
+        data: {
+          EnVivo: Boolean(EnVivo)
+        }
+      })
+    } catch (err){
+      console.error(err)
+      resp.status(400).json({ error: "Error actualizando estado en vivo" })
+    }
+})
+
+app.post("/Actualizar_Monedas", async (req : Request, resp : Response) => {
+    try {
+      const { ID_Usuario, NuevasMonedas } = req.body
+      const monedas = await prisma.usuario.update({
+        where: {
+          ID: Number(ID_Usuario)
+        },
+        data: {
+          Monedas: Number(NuevasMonedas)
+        }
+      })
+    } catch (err){
+      console.error(err)
+      resp.status(400).json({ error: "Error actualizando monedas" })
+    }
+})
+
+app.get("/datos_Stream", async (req : Request, resp : Response) => {
+    try {
+      const { ID_Usuario } = req.body
+      const datosstream = await prisma.usuario.findUnique({
+        where: {
+          ID: Number(ID_Usuario)
+        },
+        select: {
+          NombreUsuario: true,
+          ImagenPerfil: true,
+          NivelStreams: true,
+          HorasTransmision: true,
+          videos: {
+            where: {
+              Estado: true
+            },
+            select: {
+              Titulo: true,
+              CategoriaDeVideo: true,
+              V_DEOs: {
+                select: {
+                  ID_Juego: true,
+                  game: {
+                    select: {
+                      Nombre: true
+                    }
+                  }
+                }
+              }
+           }
+          }
+        }
+      })
+      resp.status(200).json(datosstream)
+    } catch (err){
+      console.error(err)
+      resp.status(400).json({ error: "Error obteniendo datos del stream" })
+    }
+})
+
+app.post("/Crear_VIdeo", async (req : Request, resp : Response) => {
+    try {
+      const { titulo, url, duracion, estado, categoriaDeVideo, ID_Juego, ID_Usuario } = req.body
+      const ListaCategorias = categoriaDeVideo.join(", ");
+      const video = await prisma.video.create({
+        data: {
+          Titulo: String(titulo),
+          Url: String(url),
+          Duracion: Number(duracion),
+          Estado: Boolean(estado),
+          CategoriaDeVideo: String(ListaCategorias),
+          ID_Usuario: Number(ID_Usuario)
+        }
+      })
+    } catch (err){
+      console.error(err)
+      resp.status(400).json({ error: "Error creando video" })
+    }
+})
+
+app.post("/Vincular_Juego_Video", async (req : Request, resp : Response) => {
+    try {
+      const { ID_Juego, ID_Video } = req.body
+      const vinculo = await prisma.juegosEnVideo.create({
+        data: {
+          ID_Juego: Number(ID_Juego),
+          ID_Video: Number(ID_Video)
+        }
+      })
+    } catch (err){
+      console.error(err)
+      resp.status(400).json({ error: "Error vinculando juego y video" })
+    }
+})
+
+app.post("/Actualizar_Video", async (req : Request, resp : Response) => {
+    try {
+      const { ID_Video, duracion, estado, categoriaDeVideo } = req.body
+      const ListaCategorias = categoriaDeVideo.join(", ");
+      const VideoActualizado = await prisma.video.update({
+        where: {
+          ID_Video: Number(ID_Video)
+        },
+        data: {
+          Duracion: Number(duracion),
+          Estado: Boolean(estado),
+          CategoriaDeVideo: String(ListaCategorias)
+        }
+      })
+
+    } catch (err){
+      console.error(err)
+      resp.status(400).json({ error: "Error actualizando video" })
+    }
+})
+
+app.post("/Eliminar_Video", async (req : Request, resp : Response) => {
+    try {
+      const { ID_Video } = req.body
+      const VideoEliminado = await prisma.video.delete({
+        where: {
+          ID_Video: Number(ID_Video)
+        }
+      })  
+    } catch (err){
+      console.error(err)
+      resp.status(400).json({ error: "Error eliminando video" })
+    }
+})
+
+app.get("/VerMisVideos", async (req: Request, resp: Response) => {
+    try {
+      const { ID_Usuario } = req.body
+      const MisVideos = await prisma.video.findMany({
+        where:{
+          ID_Usuario: Number(ID_Usuario)
+        },
+        select: {
+          Titulo: true,
+          CategoriaDeVideo: true,
+          V_DEOs: {
+            select: {
+              game: {
+                select: {
+                  Nombre: true
+                }
+              },
+            }
+          }
+        }
+      })
+      resp.status(200).json(MisVideos)
+    } catch (err){
+      console.error(err)
+      resp.status(400).json({ error: "Error obteniendo mis videos" })
     }
 })
 

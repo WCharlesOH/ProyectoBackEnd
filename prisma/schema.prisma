@@ -21,6 +21,7 @@ model Usuario {
   email            String    @unique
   HorasTransmision Int
   Monedas          Int
+  EnVivo           Boolean   @default(false)
   ImagenPerfil     String
   NivelStreams     Int
   Puntos           Int
@@ -42,6 +43,7 @@ model ChatStreamer {
   ID_Viewer   Int
   NivelViewer Int     @default(0)
   Habilitado  Boolean @default(true)
+  Viendo      Boolean
 
   streamerC Usuario @relation("streamerCHat", fields: [ID_Streamer], references: [ID])
   viewerC   Usuario @relation("viewerEnChat", fields: [ID_Viewer], references: [ID])
@@ -83,7 +85,17 @@ model Juego {
   CategoriaID Int
 
   categoria Categoria @relation(fields: [CategoriaID], references: [ID])
-  videos    Video[]
+  Jogos JuegosEnVideo[] @relation("Jogo")
+}
+
+model JuegosEnVideo {
+  ID_Juego  Int
+  ID_Video  Int
+
+  game Juego @relation("Jogo", fields: [ID_Juego], references: [ID_Juego])
+  Vedeo   Video @relation("V_DEO", fields: [ID_Video], references: [ID_Video])
+
+  @@id([ID_Juego, ID_Video])
 }
 
 model Video {
@@ -91,11 +103,12 @@ model Video {
   Titulo      String
   Url         String
   Duracion    Int?
+  Estado      Boolean
+  CategoriaDeVideo  String
   FechaSubida DateTime @default(now())
-  ID_Juego    Int
   ID_Usuario  Int
 
-  juego   Juego   @relation(fields: [ID_Juego], references: [ID_Juego])
+  V_DEOs JuegosEnVideo[] @relation("V_DEO")
   usuario Usuario @relation(fields: [ID_Usuario], references: [ID])
 }
 
