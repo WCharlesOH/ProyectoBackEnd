@@ -15,27 +15,43 @@ datasource db {
 }
 
 model Usuario {
-  ID                Int      @id @default(autoincrement())
-  NombreUsuario     String
-  Contraseña        String
-  email             String
-  HorasTransmision  Int
-  Monedas           Int
-  NivelStreams      Int
-  Puntos            Int
-  fechaCreacion     DateTime @default(now())
-  regalos Regalo[]
-  // Relaciones
+  ID               Int       @id @default(autoincrement())
+  NombreUsuario    String    @unique
+  Contraseña       String
+  email            String    @unique
+  HorasTransmision Int
+  Monedas          Int
+  ImagenPerfil     String
+  NivelStreams     Int
+  Puntos           Int
+  fechaCreacion    DateTime  @default(now())
+
+  regalos               Regalo[]
+  videos                Video[]
+
   streamerSuscripciones Suscripcion[] @relation("StreamerSuscripciones")
   viewerSuscripciones   Suscripcion[] @relation("ViewerSuscripciones")
+
+  streamerCHat ChatStreamer[] @relation("streamerCHat")
+  viewerEnChat ChatStreamer[] @relation("viewerEnChat")
+}
+
+model ChatStreamer {
+  ID_Streamer Int
+  ID_Viewer   Int
+  NivelViewer Int     @default(0)
+  Habilitado  Boolean @default(true)
+
+  streamerC Usuario @relation("streamerCHat", fields: [ID_Streamer], references: [ID])
+  viewerC   Usuario @relation("viewerEnChat", fields: [ID_Viewer], references: [ID])
+
+  @@id([ID_Streamer, ID_Viewer])
 }
 
 model Suscripcion {
   ID_Streamer Int
   ID_Viewer   Int
-  NivelViewer Int   @default(0)
 
-  // Claves foráneas
   streamer Usuario @relation("StreamerSuscripciones", fields: [ID_Streamer], references: [ID])
   viewer   Usuario @relation("ViewerSuscripciones", fields: [ID_Viewer], references: [ID])
 
@@ -43,12 +59,12 @@ model Suscripcion {
 }
 
 model Regalo {
-  ID_Regalo      Int      @id @default(autoincrement())
-  NombreRegalo   String
-  PrecioRegalo   Int
+  ID_Regalo         Int     @id @default(autoincrement())
+  NombreRegalo      String
+  PrecioRegalo      Int
   DescripcionRegalo String
-  icono          String
-  ID_Streamer    Int
+  icono             String
+  ID_Streamer       Int
 
   streamer Usuario @relation(fields: [ID_Streamer], references: [ID])
 }
@@ -61,8 +77,23 @@ model Categoria {
 
 model Juego {
   ID_Juego   Int      @id @default(autoincrement())
-  Nombre     String
+  Nombre      String
   Descripcion String?
   CategoriaID Int
-  categoria  Categoria @relation(fields: [CategoriaID], references: [ID])
+
+  categoria Categoria @relation(fields: [CategoriaID], references: [ID])
+  videos    Video[]
+}
+
+model Video {
+  ID_Video    Int      @id @default(autoincrement())
+  Titulo      String
+  Url         String
+  Duracion    Int?
+  FechaSubida DateTime @default(now())
+  ID_Juego    Int
+  ID_Usuario  Int
+
+  juego   Juego   @relation(fields: [ID_Juego], references: [ID_Juego])
+  usuario Usuario @relation(fields: [ID_Usuario], references: [ID])
 }
