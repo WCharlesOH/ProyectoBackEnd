@@ -1,0 +1,9 @@
+POST http://localhost:5000/Registrar_Usuario
+Content-Type: application/json
+
+{
+    "NombreUsuario": "usuarioPrueba",
+    "Contraseña": "Secreto123!",
+    "email": "usuario@prueba.com",
+    "ImagenPerfil": "hola"
+}

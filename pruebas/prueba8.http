@@ -1,0 +1,8 @@
+POST http://localhost:5000/Actualizar_NivelViewer
+Content-Type: application/json
+
+{
+    "ID_chatStreamer": 1,
+    "ID_ChatViewer": 5,
+    "NuevoNivel": 4
+}

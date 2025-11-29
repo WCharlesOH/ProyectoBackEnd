@@ -1,0 +1,8 @@
+POST http://localhost:5000/Crear_ChatStreamer
+Content-Type: application/json
+
+{
+    "ID_Streamer": 1,
+    "ID_Viewer": 5,
+    "Viendo": true
+}

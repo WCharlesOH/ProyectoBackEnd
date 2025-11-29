@@ -1,0 +1,7 @@
+POST http://localhost:5000/Actualizar_Monedas
+Content-Type: application/json
+
+{
+    "ID_Usuario": 1,
+    "NuevasMonedas": 150
+}

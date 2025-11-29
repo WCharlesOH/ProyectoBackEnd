@@ -1,0 +1,9 @@
+POST http://localhost:5000/VIendoDirecto
+Content-Type: application/json
+
+{
+    "ID_chatStreamer": 1,
+    "ID_ChatViewer": 5,
+    "Viendo": false,
+    "EnVIvo": true
+}

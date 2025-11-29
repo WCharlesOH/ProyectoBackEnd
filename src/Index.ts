@@ -23,22 +23,18 @@ app.post("/Registrar_Usuario", async (req : Request, resp : Response) => {
         Contraseña,
         email,
         ImagenPerfil,
-        HorasTransmision = 0,
-        Monedas = 0,
-        NivelStreams = 0,
-        Puntos = 0
       } = req.body
 
       const usuario = await prisma.usuario.create({
       data: {
-        NombreUsuario,
-        Contraseña,
-        email,
-        ImagenPerfil,
-        HorasTransmision: Number(HorasTransmision),
-        Monedas: Number(Monedas),
-        NivelStreams: Number(NivelStreams),
-        Puntos: Number(Puntos)
+        NombreUsuario: NombreUsuario,
+        Contraseña: Contraseña,
+        email: email,
+        ImagenPerfil: ImagenPerfil,
+        HorasTransmision: Number(0),
+        Monedas: Number(0),
+        NivelStreams: Number(0),
+        Puntos: Number(0)
       }
     })
 
@@ -142,6 +138,7 @@ app.post("/Crear_Suscripcion", async (req : Request, resp : Response) => {
           ID_Viewer: Number(ID_Viewer)
         }
       })
+      resp.status(200).json(suscricpcion)
     } catch (err){
       console.error(err)
       resp.status(400).json({ error: "Error creando suscripción" })
@@ -159,9 +156,54 @@ app.post("/Eliminar_Suscripcion", async (req : Request, resp : Response) => {
           }
         }
       })
+      resp.status(200).json(Suscripcion)
     } catch (err){
       console.error(err)
       resp.status(400).json({ error: "Error eliminando suscripción" })
+    }
+})
+
+app.post("/Crear_ChatStreamer", async (req : Request, resp : Response) => {
+    try {
+      const { ID_Streamer, ID_Viewer } = req.body
+      const chatStreamer =  await prisma.chatStreamer.create({
+        data: {
+          ID_Streamer: Number(ID_Streamer),
+          ID_Viewer: Number(ID_Viewer),
+          Viendo: true,
+        }
+      })
+      resp.status(200).json(chatStreamer)
+    } catch (err){
+      console.error(err)
+      resp.status(400).json({ error: "Error creando chat streamer" })
+    }
+})
+
+app.post("/VIendoDirecto", async (req : Request, resp : Response) => {
+    try {
+      const { ID_ChatViewer, ID_chatStreamer, Viendo, EnVivo } = req.body
+      if (EnVivo === false || EnVivo === "false") {
+        resp.status(200).json({ result: "no hay chat porque el streamer no está en vivo" })
+      }
+      else {
+        const ViendoDirecto = await prisma.chatStreamer.update({
+        where: {
+          ID_Streamer_ID_Viewer: {
+            ID_Streamer: Number(ID_chatStreamer),
+            ID_Viewer: Number(ID_ChatViewer)
+          }
+        },
+        data: {
+          Viendo: Viendo
+        }
+      })
+      resp.status(200).json(ViendoDirecto)
+      }
+      
+    } catch (err){
+      console.error(err)
+      resp.status(400).json({ error: "Error actualizando viendo directo" })
     }
 })
 
@@ -179,6 +221,7 @@ app.post("/Actualizar_NivelViewer", async (req : Request, resp : Response) => {
           NivelViewer: Number(NuevoNivel)
         }
       })
+      resp.status(200).json(NivelChat)
     } catch (err){
       console.error(err)
       resp.status(400).json({ error: "Error actualizando nivel viewer" })
@@ -196,6 +239,7 @@ app.post("/Actualizar_NivelStreams", async (req : Request, resp : Response) => {
           NivelStreams: Number(NuevoNivel)
         }
       })
+      resp.status(200).json(NivelStreams)
     } catch (err){
       console.error(err)
       resp.status(400).json({ error: "Error actualizando nivel streams" })
@@ -254,6 +298,7 @@ app.post("/Actualizar_Logro", async (req : Request, resp : Response) => {
           Completado: Boolean(Completado)
         }
       })
+      resp.status(200).json(Logro)
     } catch (err){
       console.error(err)
       resp.status(400).json({ error: "Error actualizando logro" })
@@ -307,14 +352,12 @@ app.get("/Mas_Vistos", async (req: Request, res: Response) => {
 app.post("/Actualizar_Estado_EnVivo", async (req : Request, resp : Response) => {
     try {
       const { ID_Usuario, EnVivo } = req.body
-      const EstadoEnVivo = await prisma.usuario.update({
-        where: {
-          ID: Number(ID_Usuario)
-        },
-        data: {
-          EnVivo: Boolean(EnVivo)
-        }
-      })
+      const EnVivoBool = (EnVivo === true || EnVivo === "true");
+    const updated = await prisma.usuario.updateMany({
+      where: { ID: Number(ID_Usuario)},
+      data: { EnVivo: EnVivoBool }
+    })
+    resp.status(200).json(updated)
     } catch (err){
       console.error(err)
       resp.status(400).json({ error: "Error actualizando estado en vivo" })
@@ -332,6 +375,7 @@ app.post("/Actualizar_Monedas", async (req : Request, resp : Response) => {
           Monedas: Number(NuevasMonedas)
         }
       })
+      resp.status(200).json(monedas)
     } catch (err){
       console.error(err)
       resp.status(400).json({ error: "Error actualizando monedas" })
