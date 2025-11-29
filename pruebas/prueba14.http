@@ -1,0 +1,7 @@
+POST http://localhost:5000/Vincular_Juego_Video
+Content-Type: application/json
+
+{
+    "ID_Juego": 3,
+    "ID_Video": 4
+}

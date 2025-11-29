@@ -1,0 +1,11 @@
+POST http://localhost:5000/Crear_VIdeo
+Content-Type: application/json
+
+{
+    "titulo": "Video de Prueba",
+    "url": "http://example.com/video.mp4",
+    "duracion": 3600,
+    "estado": "publico",
+    "categoriaDeVideo": ["Educacion", "Tecnologia"],
+    "ID_Usuario": 1
+}

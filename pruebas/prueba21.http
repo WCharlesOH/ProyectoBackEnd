@@ -1,0 +1,6 @@
+GET http://localhost:5000/datos_Stream
+Content-Type: application/json
+
+{
+    "ID_Usuario": 1
+}

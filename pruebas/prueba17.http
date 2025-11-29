@@ -1,0 +1,6 @@
+GET http://localhost:5000/SuscripcioneMias
+Content-Type: application/json
+
+{
+    "ID_Streamer": 1
+}

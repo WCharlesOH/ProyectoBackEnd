@@ -1,0 +1,9 @@
+POST http://localhost:5000/Actualizar_Video
+Content-Type: application/json
+
+{
+    "ID_Video": 3,
+    "duracion": 3900,
+    "estado": false,
+    "categoriaDeVideo": ["Educativo", "Entretenimiento"]
+}

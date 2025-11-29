@@ -1,0 +1,8 @@
+POST http://localhost:5000/Asignar_Logro
+Content-Type: application/json
+
+{
+    "ID_Usuario": 1,
+    "ID_LogroPlantilla": 20,
+    "Completado": false
+}

@@ -2,7 +2,7 @@ import express, {Request, Response, NextFunction} from "express"
 import dotenv from "dotenv"
 import bodyParser from "body-parser"
 import cors from "cors"
-import { PrismaClient } from "./generated/prisma/client.js"
+import { PrismaClient } from "./generated/prisma"
 
 
 
@@ -109,6 +109,7 @@ app.get("/SuscripcioneMias", async (req: Request, resp: Response) => {
           }
         }
       })
+      resp.status(200).json(suscripciones)
     } catch (err){
       console.error(err)
       resp.status(400).json({ error: "Error encontrando suscricpciones" })
@@ -266,16 +267,38 @@ app.get("/UsuariosRanking", async (req : Request, resp : Response) => {
     }
 })
 
+app.post("/Asignar_Logro", async (req : Request, resp : Response) => {
+    try {
+      const { ID_Usuario, ID_LogroPlantilla, Completado } = req.body
+      const NLogro = await prisma.logrosUsuario.create({
+        data: {
+          ID_Usuario: Number(ID_Usuario),
+          ID_Logro: Number(ID_LogroPlantilla),
+          Completado: Completado
+        }
+      })
+      resp.status(200).json(NLogro)
+    } catch (err){
+      console.error(err)
+      resp.status(400).json({ error: "Error creando logro" })
+    }
+})
+
 app.get("/LogrosUsuario", async (req : Request, resp : Response) => {
     try{
       const { ID_Usuario } = req.body
-      const Logros = await prisma.logros.findMany({
+      const Logros = await prisma.logrosUsuario.findMany({
         where:{
           ID_Usuario: Number(ID_Usuario)
         },
         select: {
-          Nombre: true,
-          Puntaje: true,
+          logros: {
+            select: {
+              Nombre: true,
+              descripcion: true,
+              Puntaje: true
+          }
+        },
           Completado: true
         }
       })
@@ -289,13 +312,15 @@ app.get("/LogrosUsuario", async (req : Request, resp : Response) => {
 app.post("/Actualizar_Logro", async (req : Request, resp : Response) => {
     try {
       const { ID_Usuario, ID_Logro, Completado} = req.body
-      const Logro = await prisma.logros.update({
+      const Logro = await prisma.logrosUsuario.update({
         where:{
-          ID_Logro: Number(ID_Logro),
-          ID_Usuario: Number(ID_Usuario)
+          ID_Usuario_ID_Logro: {
+            ID_Usuario: Number(ID_Usuario),
+            ID_Logro: Number(ID_Logro)
+          }
         },
         data: {
-          Completado: Boolean(Completado)
+          Completado: Completado
         }
       })
       resp.status(200).json(Logro)
@@ -309,20 +334,18 @@ app.get("/Mas_Vistos", async (req: Request, res: Response) => {
   try {
     const streamers = await prisma.usuario.findMany({
       where: {
-        EnVivo: true
+        EnVivo: false
       },
       take: 20,
       select: {
         NombreUsuario: true,
         ImagenPerfil: true,
         NivelStreams: true,
-        // devuelve la cantidad total de streamerChat (sin filtrar)
         _count: {
           select: {
             streamerCHat: true
           }
         },
-        // trae solo los chats donde Viendo = true para luego contar en JS
         streamerCHat: {
           where: { Viendo: true },
           select: {
@@ -331,15 +354,13 @@ app.get("/Mas_Vistos", async (req: Request, res: Response) => {
         }
       }
     })
-
-    // calcular ViendoCount por streamer a partir del array filtrado
     const result = streamers.map((s: typeof streamers[0]) => ({
       NombreUsuario: s.NombreUsuario,
       ImagenPerfil: s.ImagenPerfil,
       NivelStreams: s.NivelStreams,
       ViendoCount: (s.streamerCHat ?? []).length,
       TotalChats: s._count?.streamerCHat ?? 0,
-      streamerChat: s.streamerCHat // incluye detalles si los necesitas
+      streamerChat: s.streamerCHat 
     }))
 
     res.status(200).json(result)
@@ -424,18 +445,18 @@ app.get("/datos_Stream", async (req : Request, resp : Response) => {
 
 app.post("/Crear_VIdeo", async (req : Request, resp : Response) => {
     try {
-      const { titulo, url, duracion, estado, categoriaDeVideo, ID_Juego, ID_Usuario } = req.body
+      const { titulo, url, duracion, estado, categoriaDeVideo, ID_Usuario } = req.body
       const ListaCategorias = categoriaDeVideo.join(", ");
       const video = await prisma.video.create({
         data: {
           Titulo: String(titulo),
           Url: String(url),
-          Duracion: Number(duracion),
-          Estado: Boolean(estado),
+          Estado: estado,
           CategoriaDeVideo: String(ListaCategorias),
           ID_Usuario: Number(ID_Usuario)
         }
       })
+      resp.status(200).json(video)
     } catch (err){
       console.error(err)
       resp.status(400).json({ error: "Error creando video" })
@@ -451,6 +472,7 @@ app.post("/Vincular_Juego_Video", async (req : Request, resp : Response) => {
           ID_Video: Number(ID_Video)
         }
       })
+      resp.status(200).json(vinculo)
     } catch (err){
       console.error(err)
       resp.status(400).json({ error: "Error vinculando juego y video" })
@@ -467,11 +489,11 @@ app.post("/Actualizar_Video", async (req : Request, resp : Response) => {
         },
         data: {
           Duracion: Number(duracion),
-          Estado: Boolean(estado),
+          Estado: estado,
           CategoriaDeVideo: String(ListaCategorias)
         }
       })
-
+      resp.status(200).json(VideoActualizado)
     } catch (err){
       console.error(err)
       resp.status(400).json({ error: "Error actualizando video" })
@@ -485,7 +507,8 @@ app.post("/Eliminar_Video", async (req : Request, resp : Response) => {
         where: {
           ID_Video: Number(ID_Video)
         }
-      })  
+      }) 
+      resp.status(200).json(VideoEliminado) 
     } catch (err){
       console.error(err)
       resp.status(400).json({ error: "Error eliminando video" })

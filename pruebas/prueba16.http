@@ -1,0 +1,6 @@
+GET http://localhost:5000/Suscrito
+Content-Type: application/json
+
+{
+    "ID_Usuario": 5
+}

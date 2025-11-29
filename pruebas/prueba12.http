@@ -1,0 +1,8 @@
+POST http://localhost:5000/Actualizar_Logro
+Content-Type: application/json
+
+{
+    "ID_Usuario": 1,
+    "ID_Logro": 20,
+    "Completado": true
+}

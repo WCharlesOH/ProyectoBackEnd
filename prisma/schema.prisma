@@ -29,7 +29,8 @@ model Usuario {
 
   regalos               Regalo[]
   videos                Video[]
-  logros                Logros[]
+
+  LogrosUsuario LogrosUsuario[] @relation("LogrosUsuario")
 
   streamerSuscripciones Suscripcion[] @relation("StreamerSuscripciones")
   viewerSuscripciones   Suscripcion[] @relation("ViewerSuscripciones")
@@ -102,7 +103,7 @@ model Video {
   ID_Video    Int      @id @default(autoincrement())
   Titulo      String
   Url         String
-  Duracion    Int?
+  Duracion    Int?     @default(0)
   Estado      Boolean
   CategoriaDeVideo  String
   FechaSubida DateTime @default(now())
@@ -112,12 +113,24 @@ model Video {
   usuario Usuario @relation(fields: [ID_Usuario], references: [ID])
 }
 
+model LogrosUsuario {
+  ID_Usuario  Int
+  ID_Logro Int
+  Completado Boolean @default(false)
+
+
+  usuario Usuario @relation("LogrosUsuario",fields: [ID_Usuario], references: [ID])
+  logros Logros @relation("usuariologros",fields: [ID_Logro], references: [ID_Logro])
+
+  @@id([ID_Usuario, ID_Logro])
+}
+
+
 model Logros {
   ID_Logro  Int     @id @default(autoincrement())
   Nombre    String  @unique
+  descripcion String
   Puntaje   Int
-  Completado Boolean @default(false)
-  ID_Usuario Int
 
-  usuario Usuario @relation(fields: [ID_Usuario], references: [ID])
+  usuariologros LogrosUsuario[] @relation("usuariologros")
 }
