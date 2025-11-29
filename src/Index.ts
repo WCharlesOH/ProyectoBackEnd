@@ -2,8 +2,8 @@ import express, {Request, Response, NextFunction} from "express"
 import dotenv from "dotenv"
 import bodyParser from "body-parser"
 import cors from "cors"
-import { PrismaClient } from "./generated/prisma/client"
-import { count, group } from "node:console"
+import { PrismaClient } from "./generated/prisma/client.js"
+
 
 
 dotenv.config()
@@ -82,7 +82,6 @@ app.get("/Suscrito", async (req: Request, resp: Response) => {
           streamer: {
             select: {
               NombreUsuario: true,
-              URL_Pagina: true,
               NivelStreams: true,
               ImagenPerfil: true
             }
@@ -106,10 +105,10 @@ app.get("/SuscripcioneMias", async (req: Request, resp: Response) => {
         select:{
           Habilitado: true,
           NivelViewer: true,
-          viewer: {
+          viewerC: {
             select: {
               NombreUsuario: true,
-              IMagenPerfil: true
+              ImagenPerfil: true
             }
           }
         }
@@ -117,6 +116,20 @@ app.get("/SuscripcioneMias", async (req: Request, resp: Response) => {
     } catch (err){
       console.error(err)
       resp.status(400).json({ error: "Error encontrando suscricpciones" })
+    }
+})
+
+app.get("/TODOS", async (req: Request, resp: Response) => {
+    try {
+      const TODOS = await prisma.suscripcion.findMany({
+        select:{
+          ID_Streamer: true
+        }
+      })
+      resp.status(200).json(TODOS)
+    } catch (err){
+      console.error(err)
+      resp.status(400).json({ error: "Error obteniendo cantidad de suscriptores" })
     }
 })
 
@@ -258,33 +271,33 @@ app.get("/Mas_Vistos", async (req: Request, res: Response) => {
         NombreUsuario: true,
         ImagenPerfil: true,
         NivelStreams: true,
+        // devuelve la cantidad total de streamerChat (sin filtrar)
         _count: {
-          streamerChat: {
-            where: {
-              Viendo: true
-            },
+          select: {
+            streamerCHat: true
           }
         },
-        streamerChat: {
+        // trae solo los chats donde Viendo = true para luego contar en JS
+        streamerCHat: {
           where: { Viendo: true },
           select: {
-            videos: {
-              where: { Estado: true },
-              select: {
-                V_DEOs: {
-                  select: {
-                    game: {
-                      select: { Nombre: true }
-                    }
-                  }
-                }
-              }
-            }
+            ID_Viewer: true
           }
         }
       }
     })
-    res.status(200).json(streamers)
+
+    // calcular ViendoCount por streamer a partir del array filtrado
+    const result = streamers.map((s: typeof streamers[0]) => ({
+      NombreUsuario: s.NombreUsuario,
+      ImagenPerfil: s.ImagenPerfil,
+      NivelStreams: s.NivelStreams,
+      ViendoCount: (s.streamerCHat ?? []).length,
+      TotalChats: s._count?.streamerCHat ?? 0,
+      streamerChat: s.streamerCHat // incluye detalles si los necesitas
+    }))
+
+    res.status(200).json(result)
   } catch (err) {
     console.error(err)
     res.status(400).json({ error: "Error obteniendo los streamers más vistos" })
