@@ -543,6 +543,111 @@ app.get("/VerMisVideos", async (req: Request, resp: Response) => {
     }
 })
 
+//agregar
+
+app.post("/regalos/crear", async (req : Request, resp : Response) => {
+    const datosRecibidos = req.body
+
+    const regalo = await prisma.regalo.create({
+        data : {
+            NombreRegalo : datosRecibidos.NombreRegalo ,
+            PrecioRegalo : parseFloat(datosRecibidos.PrecioRegalo),
+            DescripcionRegalo : datosRecibidos.DescripcionRegalo,
+            icono : datosRecibidos.icono,
+            streamer: { 
+                    connect: { 
+                        ID: 1  
+                    } 
+                }
+
+
+        }
+    })
+    resp.status(200).json(regalo)
+})
+
+
+
+
+//eliminar
+app.get("/regalos/eliminar", async (req: Request, resp: Response) => {
+
+    const nombreParaBorrar = req.query.nombre as string; 
+
+    if (!nombreParaBorrar) {
+        return resp.status(400).json({ error: "Falta el parámetro ?nombre=..." });
+    }
+
+    try {
+        const resultado = await prisma.regalo.deleteMany({
+            where: {
+                NombreRegalo: nombreParaBorrar
+            }
+        })
+
+        if (resultado.count === 0) {
+             return resp.status(404).json({ mensaje: "No encontré nada con ese nombre." });
+        }
+
+        resp.status(200).json(resultado);
+
+    } catch (error) {
+        resp.status(500).json({ error: "Error al eliminar" });
+    }
+})
+
+
+
+
+//Modificar
+
+app.post("/regalos/actualizar", async (req : Request, resp : Response) => {
+    const data = req.body
+    const id = data.id
+
+    try {
+        const regaloActualizado = await prisma.regalo.update({
+            where : {
+                ID_Regalo: data.ID_Regalo
+            },
+            data : {
+                
+                NombreRegalo: data.nuevoNombre,
+                PrecioRegalo: parseFloat(data.nuevoPrecio),
+                DescripcionRegalo:data.DescripcionRegalo,
+                icono:data.icono
+            
+            }
+        })
+        resp.status(200).json(regaloActualizado)
+        return
+    }catch (e) {
+        // AGREGA ESTA LÍNEA OBLIGATORIAMENTE:
+        console.log("---------------- ERROR REAL PRISMA ----------------");
+        console.log(e); 
+        console.log("---------------------------------------------------");
+
+        resp.status(400).json({
+            error: "Hubo un error. Mira la terminal de VS Code para ver el detalle."
+        })
+    }
+})
+
+
+//obtener regalos
+
+app.get("/regalos", async (req: Request, resp: Response) => {
+    try {
+        const todosLosRegalos = await prisma.regalo.findMany({
+        })
+
+        resp.status(200).json(todosLosRegalos)
+    } catch (error) {
+        console.error(error)
+        resp.status(500).json({ error: "Hubo un error al obtener la lista" })
+    }
+})
+
 //ENDPOINT PARA LA TRANSMISIÓN EN VIVO
 app.get("/api/live-url", (req: Request, res: Response) => {
   const liveUrl = process.env.LIVE_EMBED_URL
