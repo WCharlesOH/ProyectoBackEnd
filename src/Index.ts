@@ -179,6 +179,7 @@ app.post("/Validar_Usuario", async (req : Request, resp : Response) => {
           ID: true,
           NombreUsuario: true,
           HorasTransmision: true,
+          ImagenPerfil: true,
           Monedas: true,
           NivelStreams: true,
           Puntos: true
@@ -191,7 +192,7 @@ app.post("/Validar_Usuario", async (req : Request, resp : Response) => {
   }
 })
 
-app.get("/Suscrito", async (req: Request, resp: Response) => {
+app.post("/Suscrito", async (req: Request, resp: Response) => {
     try {
       const { ID_Usuario } = req.body
       const suscripciones = await prisma.suscripcion. findMany({
@@ -215,7 +216,7 @@ app.get("/Suscrito", async (req: Request, resp: Response) => {
     }
 })
 
-app.get("/SuscripcioneMias", async (req: Request, resp: Response) => {
+app.post("/SuscripcioneMias", async (req: Request, resp: Response) => {
     try{
       const { ID_Streamer } = req. body
       const suscripciones = await prisma.chatStreamer.findMany({
@@ -288,7 +289,7 @@ app.post("/Eliminar_Suscripcion", async (req : Request, resp : Response) => {
     }
 })
 
-app. post("/Crear_ChatStreamer", async (req : Request, resp : Response) => {
+app.post("/Crear_ChatStreamer", async (req : Request, resp : Response) => {
     try {
       const { ID_Streamer, ID_Viewer } = req.body
       const chatStreamer =  await prisma.chatStreamer.create({
@@ -312,7 +313,7 @@ app. post("/Crear_ChatStreamer", async (req : Request, resp : Response) => {
     }
 })
 
-app.get("/ObtenerDatosUsuario", async (req : Request, resp : Response) => {
+app.post("/ObtenerDatosUsuario", async (req : Request, resp : Response) => {
     try {
       const { ID_Usuario } = req.body
       const datosUsuario = await prisma.usuario.findUnique({
@@ -323,6 +324,7 @@ app.get("/ObtenerDatosUsuario", async (req : Request, resp : Response) => {
           ID: true,
           NombreUsuario: true,
           HorasTransmision: true,
+          ImagenPerfil: true,
           Monedas: true,
           NivelStreams: true,
           Puntos: true
@@ -362,7 +364,7 @@ app.post("/VIendoDirecto", async (req : Request, resp : Response) => {
     }
 })
 
-app.get("/ObtenerDatosChat", async (req : Request, resp : Response) => {
+app.post("/ObtenerDatosChat", async (req : Request, resp : Response) => {
     try {
       const { ID_ChatViewer, ID_chatStreamer } = req.body
       const datosChat = await prisma.chatStreamer.findUnique({
@@ -453,6 +455,7 @@ app.get("/UsuariosRanking", async (req : Request, resp : Response) => {
         },
         take: 20,
         select: {
+          ID: true,
           NombreUsuario: true,
           NivelStreams: true,
           ImagenPerfil: true,
@@ -482,7 +485,7 @@ app.post("/Asignar_Logro", async (req : Request, resp : Response) => {
     }
 })
 
-app.get("/LogrosUsuario", async (req : Request, resp : Response) => {
+app.post("/LogrosUsuario", async (req : Request, resp : Response) => {
     try{
       const { ID_Usuario } = req.body
       const Logros = await prisma.logrosUsuario.findMany({
@@ -538,7 +541,7 @@ app.post("/Actualizar_Logro", async (req : Request, resp : Response) => {
     }
 })
 
-app.get("/Todos_Los_Logros", async (req : Request, resp : Response) => {
+app.post("/Todos_Los_Logros", async (req : Request, resp : Response) => {
     try {
       const {ID_Usuario} = req.body
       const TodosLosLogros = await prisma.logrosUsuario.findMany({
@@ -597,7 +600,7 @@ app.get("/Mas_Vistos", async (req: Request, res: Response) => {
   }
 })
 
-app.get("/SeguidosEnVIvo", async (req: Request, resp: Response) => {
+app.post("/SeguidosEnVIvo", async (req: Request, resp: Response) => {
     try {
       const { ID_Usuario } = req.body
       const SeguidosEnVivo = await prisma.suscripcion.findMany({
@@ -664,7 +667,7 @@ app.post("/Actualizar_Monedas", async (req : Request, resp : Response) => {
     }
 })
 
-app.get("/datos_Stream", async (req : Request, resp : Response) => {
+app.post("/datos_Stream", async (req : Request, resp : Response) => {
     try {
       const { ID_Usuario } = req.body
       const datosstream = await prisma.usuario.findUnique({
@@ -776,7 +779,7 @@ app.post("/Eliminar_Video", async (req : Request, resp : Response) => {
     }
 })
 
-app.get("/VerMisVideos", async (req: Request, resp: Response) => {
+app.post("/VerMisVideos", async (req: Request, resp: Response) => {
     try {
       const { ID_Usuario } = req.body
       const MisVideos = await prisma. video.findMany({
