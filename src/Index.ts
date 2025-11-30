@@ -445,7 +445,7 @@ app.get("/datos_Stream", async (req : Request, resp : Response) => {
 
 app.post("/Crear_VIdeo", async (req : Request, resp : Response) => {
     try {
-      const { titulo, url, duracion, estado, categoriaDeVideo, ID_Usuario } = req.body
+      const { titulo, url, estado, categoriaDeVideo, ID_Usuario } = req.body
       const ListaCategorias = categoriaDeVideo.join(", ");
       const video = await prisma.video.create({
         data: {
@@ -647,6 +647,48 @@ app.get("/regalos", async (req: Request, resp: Response) => {
         resp.status(500).json({ error: "Hubo un error al obtener la lista" })
     }
 })
+
+app.get("/videos/buscar", async (req: Request, resp: Response) => {
+   
+    const busqueda = req.query.q as string;
+
+    if (!busqueda) {
+        return resp.status(400).json({ 
+            error: "Escribe algo para buscar. Ejemplo: /videos/buscar?q=minecraft" 
+        });
+    }
+
+    try {
+        const videosEncontrados = await prisma.video.findMany({
+            where: {
+                OR: [
+                   
+                    { 
+                        Titulo: { contains: busqueda, mode: 'insensitive' } 
+                    },
+                    { 
+                        CategoriaDeVideo: { contains: busqueda, mode: 'insensitive' } 
+                    },
+                    { 
+                        usuario: { 
+                            NombreUsuario: { contains: busqueda, mode: 'insensitive' }
+                        }
+                    }
+                ]
+            },
+        
+            include: {
+                usuario: true 
+            }
+        });
+
+        resp.status(200).json(videosEncontrados);
+
+    } catch (error) {
+        console.error("Error buscando videos:", error);
+        resp.status(500).json({ error: "Error al realizar la búsqueda" });
+    }
+});
 
 //ENDPOINT PARA LA TRANSMISIÓN EN VIVO
 app.get("/api/live-url", (req: Request, res: Response) => {
