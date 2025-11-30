@@ -2,19 +2,139 @@ import express, {Request, Response, NextFunction} from "express"
 import dotenv from "dotenv"
 import bodyParser from "body-parser"
 import cors from "cors"
-import { PrismaClient } from "./generated/prisma"
-
-
+import { PrismaClient } from "@prisma/client"
 
 dotenv.config()
 
 const app = express()
-const PORT = process.env.PORT || 5000
+const PORT = process. env.PORT || 5000
 const prisma = new PrismaClient()
 
 app.use(bodyParser.json())
 app.use(bodyParser.urlencoded({ extended : true }))
-app.use(cors())
+app. use(cors())
+
+// VDO. NINJA CONFIGUG
+
+
+// Configuración de para el stream
+const VDO_NINJA_CONFIG = {
+  baseUrl: 'https://vdo.ninja', // URL base de VDO.Ninja (no cambiar)
+  roomId: process.env.VDO_NINJA_ROOM_ID || 'sala-default-stream', // ID de la sala principal
+  password: process.env.VDO_NINJA_PASSWORD || '', // Contraseña opcional para proteger la sala
+};
+
+
+// ENDPOINTS DE VDO.NINJA
+
+
+// ENDPOINT: Obtener URL para ver stream
+app.get("/api/live-url", (req: Request, res: Response) => {
+  try {
+   
+    let viewUrl = `${VDO_NINJA_CONFIG.baseUrl}/? view=${VDO_NINJA_CONFIG. roomId}&scene`;
+    
+    const options = [
+      'autoplay',      
+      'cleanoutput',  
+      'transparent',   
+    ];
+    
+    viewUrl += '&' + options.join('&');
+    
+    // Si hay contraseña configurada en . env, agregarla
+    if (VDO_NINJA_CONFIG. password) {
+      viewUrl += `&password=${VDO_NINJA_CONFIG.password}`;
+    }
+
+    // URL para el streamer
+    const broadcasterUrl = `${VDO_NINJA_CONFIG.baseUrl}/?push=${VDO_NINJA_CONFIG.roomId}${
+      VDO_NINJA_CONFIG.password ? '&password=' + VDO_NINJA_CONFIG.password : ''
+    }`;
+
+    res. json({
+      url: viewUrl,                    // URL para viewers
+      roomId: VDO_NINJA_CONFIG.roomId, // ID de la sala
+      broadcaster: broadcasterUrl,      // URL para streamers
+      provider: 'VDO. Ninja'            
+    });
+  } catch (error) {
+    console.error('Error generando URL de VDO.Ninja:', error);
+    res.status(500). json({ error: 'Error al generar URL de transmisión' });
+  }
+});
+
+// ENDPOINT: Obtener URL para streamer
+app.get("/api/live-broadcaster", (req: Request, res: Response) => {
+  try {
+    let broadcasterUrl = `${VDO_NINJA_CONFIG.baseUrl}/?push=${VDO_NINJA_CONFIG.roomId}`;
+    
+    // Opciones para el streamer
+    const options = [
+      'autostart',    
+      'codec=h264',    
+      'quality=2',     
+      'stereo',        
+    ];
+    
+    broadcasterUrl += '&' + options.join('&');
+    
+    // Agregar contraseña si está configurada
+    if (VDO_NINJA_CONFIG.password) {
+      broadcasterUrl += `&password=${VDO_NINJA_CONFIG.password}`;
+    }
+
+    res.json({
+      broadcasterUrl,
+      roomId: VDO_NINJA_CONFIG.roomId,
+      instructions: 'Abre esta URL en tu navegador para comenzar a transmitir.  Permite el acceso a cámara y micrófono.'
+    });
+  } catch (error) {
+    console.error('Error generando URL del broadcaster:', error);
+    res. status(500).json({ error: 'Error al generar URL del broadcaster' });
+  }
+});
+
+// ENDPOINT: Crear sala PERSONALIZADA por usuario/streamer
+app.post("/api/live-room/create", async (req: Request, res: Response) => {
+  try {
+    const { ID_Usuario, NombreUsuario } = req.body;
+    
+    // Validación
+    if (!ID_Usuario || !NombreUsuario) {
+      return res.status(400).json({ error: 'ID_Usuario y NombreUsuario son requeridos' });
+    }
+
+    // Crear sala única para el streamer
+    const roomId = `stream-${NombreUsuario}-${ID_Usuario}`. toLowerCase(). replace(/\s+/g, '-');
+    const password = process.env.VDO_NINJA_PASSWORD || '';
+
+    // URL del viewer 
+    let viewUrl = `${VDO_NINJA_CONFIG.baseUrl}/?view=${roomId}&scene&autoplay&cleanoutput&transparent&codec=h264&quality=2`;
+    
+    // URL del para que el streamer
+    let broadcasterUrl = `${VDO_NINJA_CONFIG.baseUrl}/?push=${roomId}&autostart&codec=h264&quality=2&stereo`;
+    
+    // Agregar contraseña si existe
+    if (password) {
+      viewUrl += `&password=${password}`;
+      broadcasterUrl += `&password=${password}`;
+    }
+
+    res.json({
+      roomId,              // ID único de la sala
+      viewUrl,             // Para viewers
+      broadcasterUrl,      // Para el streamer
+      streamer: NombreUsuario,
+      status: 'Sala creada exitosamente'
+    });
+  } catch (error) {
+    console.error('Error creando sala personalizada:', error);
+    res. status(500).json({ error: 'Error al crear sala de transmisión' });
+  }
+});
+
+// ENDPOINTS DE USUARIOS
 
 app.post("/Registrar_Usuario", async (req : Request, resp : Response) => {
     try {
@@ -48,7 +168,7 @@ app.post("/Registrar_Usuario", async (req : Request, resp : Response) => {
 app.post("/Validar_Usuario", async (req : Request, resp : Response) => {
     try {
       const { NombreUsuario, Contraseña } = req.body
-      const usuario = await prisma.usuario.findFirst({
+      const usuario = await prisma. usuario.findFirst({
         where: {
           NombreUsuario, Contraseña
         },
@@ -70,7 +190,7 @@ app.post("/Validar_Usuario", async (req : Request, resp : Response) => {
 app.get("/Suscrito", async (req: Request, resp: Response) => {
     try {
       const { ID_Usuario } = req.body
-      const suscripciones = await prisma.suscripcion.findMany({
+      const suscripciones = await prisma.suscripcion. findMany({
         where: {
           ID_Viewer: Number(ID_Usuario)
         },
@@ -93,7 +213,7 @@ app.get("/Suscrito", async (req: Request, resp: Response) => {
 
 app.get("/SuscripcioneMias", async (req: Request, resp: Response) => {
     try{
-      const { ID_Streamer } = req.body
+      const { ID_Streamer } = req. body
       const suscripciones = await prisma.chatStreamer.findMany({
         where:{
           ID_Streamer: Number(ID_Streamer)
@@ -126,13 +246,13 @@ app.get("/TODOS", async (req: Request, resp: Response) => {
       resp.status(200).json(TODOS)
     } catch (err){
       console.error(err)
-      resp.status(400).json({ error: "Error obteniendo cantidad de suscriptores" })
+      resp.status(400). json({ error: "Error obteniendo cantidad de suscriptores" })
     }
 })
 
 app.post("/Crear_Suscripcion", async (req : Request, resp : Response) => {
     try {
-      const { ID_Streamer, ID_Viewer } = req.body
+      const { ID_Streamer, ID_Viewer } = req. body
       const suscricpcion = await prisma.suscripcion.create({
         data: {
           ID_Streamer: Number(ID_Streamer),
@@ -142,7 +262,7 @@ app.post("/Crear_Suscripcion", async (req : Request, resp : Response) => {
       resp.status(200).json(suscricpcion)
     } catch (err){
       console.error(err)
-      resp.status(400).json({ error: "Error creando suscripción" })
+      resp.status(400). json({ error: "Error creando suscripción" })
     }
 })
 
@@ -164,7 +284,7 @@ app.post("/Eliminar_Suscripcion", async (req : Request, resp : Response) => {
     }
 })
 
-app.post("/Crear_ChatStreamer", async (req : Request, resp : Response) => {
+app. post("/Crear_ChatStreamer", async (req : Request, resp : Response) => {
     try {
       const { ID_Streamer, ID_Viewer } = req.body
       const chatStreamer =  await prisma.chatStreamer.create({
@@ -174,7 +294,7 @@ app.post("/Crear_ChatStreamer", async (req : Request, resp : Response) => {
           Viendo: true,
         }
       })
-      resp.status(200).json(chatStreamer)
+      resp. status(200).json(chatStreamer)
     } catch (err){
       console.error(err)
       resp.status(400).json({ error: "Error creando chat streamer" })
@@ -240,7 +360,7 @@ app.post("/Actualizar_NivelStreams", async (req : Request, resp : Response) => {
           NivelStreams: Number(NuevoNivel)
         }
       })
-      resp.status(200).json(NivelStreams)
+      resp. status(200).json(NivelStreams)
     } catch (err){
       console.error(err)
       resp.status(400).json({ error: "Error actualizando nivel streams" })
@@ -260,7 +380,7 @@ app.get("/UsuariosRanking", async (req : Request, resp : Response) => {
           ImagenPerfil: true,
         }
       })
-      resp.status(200).json(Usuarios)
+      resp. status(200).json(Usuarios)
     }catch (err){
       console.error(err)
       resp.status(400).json({ error: "Error listando el ranking" })
@@ -277,7 +397,7 @@ app.post("/Asignar_Logro", async (req : Request, resp : Response) => {
           Completado: Completado
         }
       })
-      resp.status(200).json(NLogro)
+      resp. status(200).json(NLogro)
     } catch (err){
       console.error(err)
       resp.status(400).json({ error: "Error creando logro" })
@@ -326,7 +446,7 @@ app.post("/Actualizar_Logro", async (req : Request, resp : Response) => {
       resp.status(200).json(Logro)
     } catch (err){
       console.error(err)
-      resp.status(400).json({ error: "Error actualizando logro" })
+      resp.status(400). json({ error: "Error actualizando logro" })
     }
 })
 
@@ -358,8 +478,8 @@ app.get("/Mas_Vistos", async (req: Request, res: Response) => {
       NombreUsuario: s.NombreUsuario,
       ImagenPerfil: s.ImagenPerfil,
       NivelStreams: s.NivelStreams,
-      ViendoCount: (s.streamerCHat ?? []).length,
-      TotalChats: s._count?.streamerCHat ?? 0,
+      ViendoCount: (s.streamerCHat ??  []).length,
+      TotalChats: s._count?. streamerCHat ?? 0,
       streamerChat: s.streamerCHat 
     }))
 
@@ -396,7 +516,7 @@ app.post("/Actualizar_Monedas", async (req : Request, resp : Response) => {
           Monedas: Number(NuevasMonedas)
         }
       })
-      resp.status(200).json(monedas)
+      resp.status(200). json(monedas)
     } catch (err){
       console.error(err)
       resp.status(400).json({ error: "Error actualizando monedas" })
@@ -446,7 +566,7 @@ app.get("/datos_Stream", async (req : Request, resp : Response) => {
 app.post("/Crear_VIdeo", async (req : Request, resp : Response) => {
     try {
       const { titulo, url, duracion, estado, categoriaDeVideo, ID_Usuario } = req.body
-      const ListaCategorias = categoriaDeVideo.join(", ");
+      const ListaCategorias = categoriaDeVideo. join(", ");
       const video = await prisma.video.create({
         data: {
           Titulo: String(titulo),
@@ -483,7 +603,7 @@ app.post("/Actualizar_Video", async (req : Request, resp : Response) => {
     try {
       const { ID_Video, duracion, estado, categoriaDeVideo } = req.body
       const ListaCategorias = categoriaDeVideo.join(", ");
-      const VideoActualizado = await prisma.video.update({
+      const VideoActualizado = await prisma. video.update({
         where: {
           ID_Video: Number(ID_Video)
         },
@@ -511,14 +631,14 @@ app.post("/Eliminar_Video", async (req : Request, resp : Response) => {
       resp.status(200).json(VideoEliminado) 
     } catch (err){
       console.error(err)
-      resp.status(400).json({ error: "Error eliminando video" })
+      resp.status(400). json({ error: "Error eliminando video" })
     }
 })
 
 app.get("/VerMisVideos", async (req: Request, resp: Response) => {
     try {
       const { ID_Usuario } = req.body
-      const MisVideos = await prisma.video.findMany({
+      const MisVideos = await prisma. video.findMany({
         where:{
           ID_Usuario: Number(ID_Usuario)
         },
@@ -543,7 +663,9 @@ app.get("/VerMisVideos", async (req: Request, resp: Response) => {
     }
 })
 
-//agregar
+// ============================================
+// 🎁 ENDPOINTS DE REGALOS
+// ============================================
 
 app.post("/regalos/crear", async (req : Request, resp : Response) => {
     const datosRecibidos = req.body
@@ -551,31 +673,24 @@ app.post("/regalos/crear", async (req : Request, resp : Response) => {
     const regalo = await prisma.regalo.create({
         data : {
             NombreRegalo : datosRecibidos.NombreRegalo ,
-            PrecioRegalo : parseFloat(datosRecibidos.PrecioRegalo),
+            PrecioRegalo : parseFloat(datosRecibidos. PrecioRegalo),
             DescripcionRegalo : datosRecibidos.DescripcionRegalo,
-            icono : datosRecibidos.icono,
+            icono : datosRecibidos. icono,
             streamer: { 
                     connect: { 
                         ID: 1  
                     } 
                 }
-
-
         }
     })
     resp.status(200).json(regalo)
 })
 
-
-
-
-//eliminar
 app.get("/regalos/eliminar", async (req: Request, resp: Response) => {
-
     const nombreParaBorrar = req.query.nombre as string; 
 
     if (!nombreParaBorrar) {
-        return resp.status(400).json({ error: "Falta el parámetro ?nombre=..." });
+        return resp.status(400).json({ error: "Falta el parámetro ? nombre=..." });
     }
 
     try {
@@ -589,17 +704,12 @@ app.get("/regalos/eliminar", async (req: Request, resp: Response) => {
              return resp.status(404).json({ mensaje: "No encontré nada con ese nombre." });
         }
 
-        resp.status(200).json(resultado);
+        resp. status(200).json(resultado);
 
     } catch (error) {
         resp.status(500).json({ error: "Error al eliminar" });
     }
 })
-
-
-
-
-//Modificar
 
 app.post("/regalos/actualizar", async (req : Request, resp : Response) => {
     const data = req.body
@@ -611,30 +721,24 @@ app.post("/regalos/actualizar", async (req : Request, resp : Response) => {
                 ID_Regalo: data.ID_Regalo
             },
             data : {
-                
                 NombreRegalo: data.nuevoNombre,
                 PrecioRegalo: parseFloat(data.nuevoPrecio),
-                DescripcionRegalo:data.DescripcionRegalo,
+                DescripcionRegalo:data. DescripcionRegalo,
                 icono:data.icono
-            
             }
         })
         resp.status(200).json(regaloActualizado)
         return
     }catch (e) {
-        // AGREGA ESTA LÍNEA OBLIGATORIAMENTE:
         console.log("---------------- ERROR REAL PRISMA ----------------");
         console.log(e); 
         console.log("---------------------------------------------------");
 
         resp.status(400).json({
-            error: "Hubo un error. Mira la terminal de VS Code para ver el detalle."
+            error: "Hubo un error.  Mira la terminal de VS Code para ver el detalle."
         })
     }
 })
-
-
-//obtener regalos
 
 app.get("/regalos", async (req: Request, resp: Response) => {
     try {
@@ -648,18 +752,13 @@ app.get("/regalos", async (req: Request, resp: Response) => {
     }
 })
 
-//ENDPOINT PARA LA TRANSMISIÓN EN VIVO
-app.get("/api/live-url", (req: Request, res: Response) => {
-  const liveUrl = process.env.LIVE_EMBED_URL
+// INICIAR SERVIDOR
 
-  if (!liveUrl) {
-    return res.status(500).json({ error: "LIVE_EMBED_URL no está configurada" })
-  }
-
-  res.json({ url: liveUrl })
-})
-
-// Iniciar servidor
 app.listen(PORT, () => {
   console.log(`Backend escuchando en el puerto ${PORT}`)
+  console.log(`VDO. Ninja configurado - Room ID: ${VDO_NINJA_CONFIG. roomId}`)
+  console.log(`Endpoints disponibles:`)
+  console. log(`   - GET  /api/live-url (para viewers)`)
+  console.log(`   - GET  /api/live-broadcaster (para streamers)`)
+  console.log(`   - POST /api/live-room/create (crear salas personalizadas)`)
 })
