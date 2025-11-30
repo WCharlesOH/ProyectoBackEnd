@@ -807,9 +807,153 @@ app.post("/VerMisVideos", async (req: Request, resp: Response) => {
     }
 })
 
-// ============================================
-// 🎁 ENDPOINTS DE REGALOS
-// ============================================
+// ENDPOINTS DE BUSQUEDA
+
+// Busqueda unificada - busca usuarios, categorias/juegos y videos
+app.get("/buscar", async (req: Request, resp: Response) => {
+    const busqueda = req. query.q as string;
+
+    if (!busqueda || busqueda.trim() === "") {
+        return resp.status(400).json({ 
+            error: "Escribe algo para buscar.  Ejemplo: /buscar?q=minecraft" 
+        });
+    }
+
+    try {
+        // Buscar usuarios
+        const usuarios = await prisma.usuario.findMany({
+            where: {
+                NombreUsuario: { contains: busqueda, mode: 'insensitive' }
+            },
+            select: {
+                ID: true,
+                NombreUsuario: true,
+                ImagenPerfil: true,
+                NivelStreams: true,
+                EnVivo: true
+            },
+            take: 10
+        });
+
+        // Buscar juegos/categorías
+        const juegos = await prisma.juego. findMany({
+            where: {
+                Nombre: { contains: busqueda, mode: 'insensitive' }
+            },
+            select: {
+                ID_Juego: true,
+                Nombre: true,
+                Imagen: true
+            },
+            take: 10
+        });
+
+        // Buscar videos
+        const videos = await prisma.video.findMany({
+            where: {
+                OR: [
+                    { Titulo: { contains: busqueda, mode: 'insensitive' } },
+                    { CategoriaDeVideo: { contains: busqueda, mode: 'insensitive' } }
+                ]
+            },
+            select: {
+                ID_Video: true,
+                Titulo: true,
+                CategoriaDeVideo: true,
+                Url: true,
+                usuario: {
+                    select: {
+                        ID: true,
+                        NombreUsuario: true,
+                        ImagenPerfil: true
+                    }
+                }
+            },
+            take: 10
+        });
+
+        resp.status(200). json({
+            query: busqueda,
+            resultados: {
+                usuarios,
+                categorias: juegos,
+                videos
+            },
+            total: usuarios.length + juegos.length + videos. length
+        });
+
+    } catch (error) {
+        console.error("Error en búsqueda unificada:", error);
+        resp.status(500).json({ error: "Error al realizar la búsqueda" });
+    }
+});
+
+// Busqueda de usuarios
+app.get("/buscar/usuarios", async (req: Request, resp: Response) => {
+    const busqueda = req.query.q as string;
+
+    if (!busqueda || busqueda. trim() === "") {
+        return resp. status(400).json({ 
+            error: "Escribe algo para buscar" 
+        });
+    }
+
+    try {
+        const usuarios = await prisma. usuario.findMany({
+            where: {
+                NombreUsuario: { contains: busqueda, mode: 'insensitive' }
+            },
+            select: {
+                ID: true,
+                NombreUsuario: true,
+                ImagenPerfil: true,
+                NivelStreams: true,
+                HorasTransmision: true,
+                EnVivo: true
+            },
+            take: 20
+        });
+
+        resp.status(200).json(usuarios);
+
+    } catch (error) {
+        console.error("Error buscando usuarios:", error);
+        resp. status(500).json({ error: "Error al buscar usuarios" });
+    }
+});
+
+// Búsqueda solo de categorias/juegos
+app. get("/buscar/categorias", async (req: Request, resp: Response) => {
+    const busqueda = req.query.q as string;
+
+    if (!busqueda || busqueda.trim() === "") {
+        return resp.status(400).json({ 
+            error: "Escribe algo para buscar" 
+        });
+    }
+
+    try {
+        const categorias = await prisma.juego.findMany({
+            where: {
+                Nombre: { contains: busqueda, mode: 'insensitive' }
+            },
+            select: {
+                ID_Juego: true,
+                Nombre: true,
+                Imagen: true
+            },
+            take: 20
+        });
+
+        resp.status(200).json(categorias);
+
+    } catch (error) {
+        console.error("Error buscando categorías:", error);
+        resp.status(500).json({ error: "Error al buscar categorías" });
+    }
+});
+
+// ENDPOINTS DE REGALOS
 
 app.post("/regalos/crear", async (req : Request, resp : Response) => {
     const datosRecibidos = req.body
@@ -940,6 +1084,8 @@ app.get("/videos/buscar", async (req: Request, resp: Response) => {
         resp.status(500).json({ error: "Error al realizar la búsqueda" });
     }
 });
+
+
 
 //ENDPOINT PARA LA TRANSMISIÓN EN VIVO
 app.get("/api/live-url", (req: Request, res: Response) => {
