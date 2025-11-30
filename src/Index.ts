@@ -296,12 +296,42 @@ app. post("/Crear_ChatStreamer", async (req : Request, resp : Response) => {
           ID_Streamer: Number(ID_Streamer),
           ID_Viewer: Number(ID_Viewer),
           Viendo: true,
+        },
+        include: {
+          streamerC: {
+            select: {
+              EnVivo: true
+            }
+          }
         }
       })
       resp. status(200).json(chatStreamer)
     } catch (err){
       console.error(err)
       resp.status(400).json({ error: "Error creando chat streamer" })
+    }
+})
+
+app.get("/ObtenerDatosUsuario", async (req : Request, resp : Response) => {
+    try {
+      const { ID_Usuario } = req.body
+      const datosUsuario = await prisma.usuario.findUnique({
+        where: {
+          ID: Number(ID_Usuario)
+        },
+        select: {
+          ID: true,
+          NombreUsuario: true,
+          HorasTransmision: true,
+          Monedas: true,
+          NivelStreams: true,
+          Puntos: true
+        }
+      })
+      resp.status(200).json(datosUsuario)
+    } catch (err){
+      console.error(err)
+      resp.status(400).json({ error: "Error obteniendo datos de usuario" })
     }
 })
 
@@ -331,6 +361,32 @@ app.post("/VIendoDirecto", async (req : Request, resp : Response) => {
       resp.status(400).json({ error: "Error actualizando viendo directo" })
     }
 })
+
+app.get("/ObtenerDatosChat", async (req : Request, resp : Response) => {
+    try {
+      const { ID_ChatViewer, ID_chatStreamer } = req.body
+      const datosChat = await prisma.chatStreamer.findUnique({
+        where: {
+          ID_Streamer_ID_Viewer: {
+            ID_Streamer: Number(ID_chatStreamer),
+            ID_Viewer: Number(ID_ChatViewer)
+          }
+        },
+        include: {
+          streamerC: {
+            select: {
+              EnVivo: true
+            }
+          }
+        }
+      })
+      resp.status(200).json(datosChat)
+    } catch (err){
+      console.error(err)
+      resp.status(400).json({ error: "Error obteniendo datos del chat" })
+    }
+})
+
 
 app.post("/Actualizar_NivelViewer", async (req : Request, resp : Response) => {
     try {
@@ -368,6 +424,24 @@ app.post("/Actualizar_NivelStreams", async (req : Request, resp : Response) => {
     } catch (err){
       console.error(err)
       resp.status(400).json({ error: "Error actualizando nivel streams" })
+    }
+})
+
+app.post("/Actualizar_HorasTransmision", async (req : Request, resp : Response) => {
+    try {
+      const { ID_Usuario, NuevasHoras } = req.body
+      const HorasTransmision = await prisma.usuario.update({
+        where: {
+          ID: Number(ID_Usuario)
+        },
+        data: {
+          HorasTransmision: Number(NuevasHoras)
+        }
+      })
+      resp.status(200).json(HorasTransmision)
+    } catch (err){
+      console.error(err)
+      resp.status(400).json({ error: "Error actualizando horas de transmisión" })
     }
 })
 
@@ -433,6 +507,16 @@ app.get("/LogrosUsuario", async (req : Request, resp : Response) => {
     }
 })
 
+app.get("/LogrosPlantilla", async (req : Request, resp : Response) => {
+    try {
+      const LogrosPlantilla = await prisma.logros.findMany({})
+      resp.status(200).json(LogrosPlantilla)
+    } catch (err){
+      console.error(err)
+      resp.status(400).json({ error: "Error obteniendo logros plantilla" })
+    }
+})
+
 app.post("/Actualizar_Logro", async (req : Request, resp : Response) => {
     try {
       const { ID_Usuario, ID_Logro, Completado} = req.body
@@ -453,6 +537,25 @@ app.post("/Actualizar_Logro", async (req : Request, resp : Response) => {
       resp.status(400). json({ error: "Error actualizando logro" })
     }
 })
+
+app.get("/Todos_Los_Logros", async (req : Request, resp : Response) => {
+    try {
+      const {ID_Usuario} = req.body
+      const TodosLosLogros = await prisma.logrosUsuario.findMany({
+        where: {
+          ID_Usuario: Number(ID_Usuario)
+        },
+        include: {
+          logros: true
+        }
+      })
+      resp.status(200).json(TodosLosLogros)
+    } catch (err){
+      console.error(err)
+      resp.status(400).json({ error: "Error obteniendo todos los logros" })
+    }
+})
+
 
 app.get("/Mas_Vistos", async (req: Request, res: Response) => {
   try {
@@ -492,6 +595,40 @@ app.get("/Mas_Vistos", async (req: Request, res: Response) => {
     console.error(err)
     res.status(400).json({ error: "Error obteniendo los streamers más vistos" })
   }
+})
+
+app.get("/SeguidosEnVIvo", async (req: Request, resp: Response) => {
+    try {
+      const { ID_Usuario } = req.body
+      const SeguidosEnVivo = await prisma.suscripcion.findMany({
+        where: {
+          ID_Viewer: Number(ID_Usuario),
+          streamer: {
+            EnVivo: true
+          }
+        },
+        select: {
+          streamer: {
+            select: {
+              NombreUsuario: true,
+              ImagenPerfil: true,
+              NivelStreams: true,
+              videos: {
+                select: {
+                  Titulo: true,
+                  CategoriaDeVideo: true,
+                  Url: true,
+                }
+              }
+            }
+          }
+        }
+      })
+      resp.status(200).json(SeguidosEnVivo)
+    } catch (err){
+      console.error(err)
+      resp.status(400).json({ error: "Error obteniendo seguidos en vivo" })
+    }
 })
 
 app.post("/Actualizar_Estado_EnVivo", async (req : Request, resp : Response) => {
