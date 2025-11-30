@@ -634,6 +634,47 @@ app.post("/regalos/actualizar", async (req : Request, resp : Response) => {
     }
 })
 
+app.get("/videos/buscar", async (req: Request, resp: Response) => {
+   
+    const busqueda = req.query.q as string;
+
+    if (!busqueda) {
+        return resp.status(400).json({ 
+            error: "Escribe algo para buscar. Ejemplo: /videos/buscar?q=minecraft" 
+        });
+    }
+
+    try {
+        const videosEncontrados = await prisma.video.findMany({
+            where: {
+                OR: [
+                   
+                    { 
+                        Titulo: { contains: busqueda, mode: 'insensitive' } 
+                    },
+                    { 
+                        CategoriaDeVideo: { contains: busqueda, mode: 'insensitive' } 
+                    },
+                    { 
+                        usuario: { 
+                            NombreUsuario: { contains: busqueda, mode: 'insensitive' }
+                        }
+                    }
+                ]
+            },
+        
+            include: {
+                usuario: true 
+            }
+        });
+
+        resp.status(200).json(videosEncontrados);
+
+    } catch (error) {
+        console.error("Error buscando videos:", error);
+        resp.status(500).json({ error: "Error al realizar la búsqueda" });
+    }
+});
 
 //obtener regalos
 
