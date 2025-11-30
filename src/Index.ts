@@ -30,107 +30,110 @@ const VDO_NINJA_CONFIG = {
 
 // ENDPOINT: Obtener URL para ver stream
 app.get("/api/live-url", (req: Request, res: Response) => {
+  console.log("📥 [VDO.Ninja] Request recibido en /api/live-url");
+  
   try {
-   
-    let viewUrl = `${VDO_NINJA_CONFIG.baseUrl}/? view=${VDO_NINJA_CONFIG. roomId}&scene`;
+    let viewUrl = `${VDO_NINJA_CONFIG.baseUrl}/?view=${VDO_NINJA_CONFIG.roomId}&scene`;
     
     const options = [
-      'autoplay',      
-      'cleanoutput',  
-      'transparent',   
+      'autoplay',
+      'cleanoutput',
+      'transparent',
+      'codec=h264',
+      'quality=2',
     ];
     
     viewUrl += '&' + options.join('&');
     
-    // Si hay contraseña configurada en . env, agregarla
     if (VDO_NINJA_CONFIG. password) {
       viewUrl += `&password=${VDO_NINJA_CONFIG.password}`;
     }
 
-    // URL para el streamer
     const broadcasterUrl = `${VDO_NINJA_CONFIG.baseUrl}/?push=${VDO_NINJA_CONFIG.roomId}${
-      VDO_NINJA_CONFIG.password ? '&password=' + VDO_NINJA_CONFIG.password : ''
+      VDO_NINJA_CONFIG. password ? '&password=' + VDO_NINJA_CONFIG.password : ''
     }`;
 
-    res. json({
-      url: viewUrl,                    // URL para viewers
-      roomId: VDO_NINJA_CONFIG.roomId, // ID de la sala
-      broadcaster: broadcasterUrl,      // URL para streamers
-      provider: 'VDO. Ninja'            
+    console.log("✅ [VDO.Ninja] Respuesta enviada correctamente");
+    
+    res.json({
+      url: viewUrl,
+      roomId: VDO_NINJA_CONFIG.roomId,
+      broadcaster: broadcasterUrl,
+      provider: 'VDO.Ninja'
     });
   } catch (error) {
-    console.error('Error generando URL de VDO.Ninja:', error);
-    res.status(500). json({ error: 'Error al generar URL de transmisión' });
+    console.error("❌ [VDO.Ninja] Error en /api/live-url:", error);
+    res.status(500).json({ error: 'Error al generar URL de transmisión' });
   }
 });
 
 // ENDPOINT: Obtener URL para streamer
 app.get("/api/live-broadcaster", (req: Request, res: Response) => {
+  console.log("📥 [VDO.Ninja] Request recibido en /api/live-broadcaster");
+  
   try {
     let broadcasterUrl = `${VDO_NINJA_CONFIG.baseUrl}/?push=${VDO_NINJA_CONFIG.roomId}`;
     
-    // Opciones para el streamer
     const options = [
-      'autostart',    
-      'codec=h264',    
-      'quality=2',     
-      'stereo',        
+      'autostart',
+      'codec=h264',
+      'quality=2',
+      'stereo',
     ];
     
     broadcasterUrl += '&' + options.join('&');
     
-    // Agregar contraseña si está configurada
     if (VDO_NINJA_CONFIG.password) {
-      broadcasterUrl += `&password=${VDO_NINJA_CONFIG.password}`;
+      broadcasterUrl += `&password=${VDO_NINJA_CONFIG. password}`;
     }
+
+    console.log("✅ [VDO.Ninja] Respuesta enviada correctamente");
 
     res.json({
       broadcasterUrl,
       roomId: VDO_NINJA_CONFIG.roomId,
-      instructions: 'Abre esta URL en tu navegador para comenzar a transmitir.  Permite el acceso a cámara y micrófono.'
+      instructions: 'Abre esta URL en tu navegador para comenzar a transmitir'
     });
   } catch (error) {
-    console.error('Error generando URL del broadcaster:', error);
-    res. status(500).json({ error: 'Error al generar URL del broadcaster' });
+    console.error("❌ [VDO.Ninja] Error en /api/live-broadcaster:", error);
+    res.status(500).json({ error: 'Error al generar URL del broadcaster' });
   }
 });
 
 // ENDPOINT: Crear sala PERSONALIZADA por usuario/streamer
 app.post("/api/live-room/create", async (req: Request, res: Response) => {
+  console.log("📥 [VDO.Ninja] Request recibido en /api/live-room/create");
+  
   try {
     const { ID_Usuario, NombreUsuario } = req.body;
     
-    // Validación
     if (!ID_Usuario || !NombreUsuario) {
       return res.status(400).json({ error: 'ID_Usuario y NombreUsuario son requeridos' });
     }
 
-    // Crear sala única para el streamer
     const roomId = `stream-${NombreUsuario}-${ID_Usuario}`. toLowerCase(). replace(/\s+/g, '-');
     const password = process.env.VDO_NINJA_PASSWORD || '';
 
-    // URL del viewer 
     let viewUrl = `${VDO_NINJA_CONFIG.baseUrl}/?view=${roomId}&scene&autoplay&cleanoutput&transparent&codec=h264&quality=2`;
-    
-    // URL del para que el streamer
     let broadcasterUrl = `${VDO_NINJA_CONFIG.baseUrl}/?push=${roomId}&autostart&codec=h264&quality=2&stereo`;
     
-    // Agregar contraseña si existe
     if (password) {
       viewUrl += `&password=${password}`;
       broadcasterUrl += `&password=${password}`;
     }
 
+    console. log("✅ [VDO.Ninja] Sala personalizada creada:", roomId);
+
     res.json({
-      roomId,              // ID único de la sala
-      viewUrl,             // Para viewers
-      broadcasterUrl,      // Para el streamer
+      roomId,
+      viewUrl,
+      broadcasterUrl,
       streamer: NombreUsuario,
       status: 'Sala creada exitosamente'
     });
   } catch (error) {
-    console.error('Error creando sala personalizada:', error);
-    res. status(500).json({ error: 'Error al crear sala de transmisión' });
+    console.error("❌ [VDO.Ninja] Error creando sala:", error);
+    res.status(500).json({ error: 'Error al crear sala de transmisión' });
   }
 });
 
