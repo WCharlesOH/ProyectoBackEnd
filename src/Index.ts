@@ -612,7 +612,7 @@ app.post("/VIendoDirecto", async (req : Request, resp : Response) => {
           Viendo: Viendo
         }
       })
-      resp.status(200). json(ViendoDirecto)
+      resp.status(200).json(ViendoDirecto)
       }
       
     } catch (err){
@@ -819,7 +819,7 @@ app.get("/Mas_Vistos", async (req: Request, res: Response) => {
   try {
     const streamers = await prisma.usuario.findMany({
       where: {
-        EnVivo: false
+        EnVivo: true
       },
       take: 20,
       select: {
@@ -1264,7 +1264,7 @@ app.post("/regalos/crear", async (req : Request, resp : Response) => {
             icono : datosRecibidos. icono,
             streamer: { 
                     connect: { 
-                        ID: 1  
+                        ID: datosRecibidos.IDs  
                     } 
                 }
         }

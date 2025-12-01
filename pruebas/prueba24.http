@@ -1,0 +1,10 @@
+POST http://localhost:5000/regalos/crear
+Content-Type: application/json
+
+{
+    "NombreRegalo": "flipo",
+    "PrecioRegalo": 1000,
+    "DescripcionRegalo": "bajksdab dkasd asdnajd",
+    "icono": "a",
+    "ID": 1
+}

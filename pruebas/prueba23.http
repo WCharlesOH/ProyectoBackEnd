@@ -1,1 +1,7 @@
-GET /api/live-broadcaster
+POST http://localhost:5000/ObtenerDatosChat
+Content-Type: application/json
+
+{
+    "ID_chatStreamer": 1,
+    "ID_ChatViewer": 5,
+}
