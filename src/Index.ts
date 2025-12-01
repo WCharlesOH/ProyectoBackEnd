@@ -7,57 +7,299 @@ import { PrismaClient } from "./generated/prisma"
 dotenv.config()
 
 const app = express()
-const PORT = process. env.PORT || 5000
+const PORT = process.env.PORT || 5000
 const prisma = new PrismaClient()
 
 app.use(bodyParser.json())
 app.use(bodyParser.urlencoded({ extended : true }))
-app. use(cors())
+app.use(cors())
 
-// VDO. NINJA CONFIGUG
+// ============================================
+// CONFIGURACIÓN DE VDO. NINJA
+// ============================================
 
-
-// Configuración de para el stream
 const VDO_NINJA_CONFIG = {
-  baseUrl: 'https://vdo.ninja', // URL base de VDO.Ninja (no cambiar)
-  roomId: process.env.VDO_NINJA_ROOM_ID || 'sala-default-stream', // ID de la sala principal
-  password: process.env.VDO_NINJA_PASSWORD || '', // Contraseña opcional para proteger la sala
+  baseUrl: 'https://vdo.ninja',
+  defaultRoomId: process.env.VDO_NINJA_ROOM_ID || 'sala-default-stream',
+  defaultPassword: process.env.VDO_NINJA_PASSWORD || '',
 };
 
+// ============================================
+// SISTEMA DE GESTIÓN DE STREAMS ACTIVOS
+// ============================================
 
-// ENDPOINTS DE VDO.NINJA
+interface LiveStream {
+  streamerName: string;
+  roomId: string;
+  broadcasterUrl: string;
+  viewerUrl: string;
+  isLive: boolean;
+  startedAt: Date;
+  lastActivity: Date;
+  title?: string;
+  category?: string;
+}
 
+// Mapa de streams activos (en memoria)
+const activeStreams = new Map<string, LiveStream>();
+
+// Función para generar roomId único y persistente por usuario
+function generateRoomId(streamerName: string): string {
+  const normalized = streamerName.toLowerCase().replace(/\s+/g, '-');
+  return `stream-${normalized}`;
+}
+
+// Función para construir URLs de VDO. Ninja
+function buildVDOUrls(roomId: string, password?: string) {
+  // URL para el broadcaster (streamer)
+  let broadcasterUrl = `${VDO_NINJA_CONFIG.baseUrl}/? push=${roomId}`;
+  const broadcasterOptions = [
+    'autostart',
+    'codec=h264',
+    'quality=2',
+    'stereo=1',
+    'screenshare',
+    'videoonly=0',
+  ];
+  broadcasterUrl += '&' + broadcasterOptions.join('&');
+  
+  if (password || VDO_NINJA_CONFIG.defaultPassword) {
+    broadcasterUrl += `&password=${password || VDO_NINJA_CONFIG.defaultPassword}`;
+  }
+
+  // URL para los viewers (espectadores)
+  let viewerUrl = `${VDO_NINJA_CONFIG.baseUrl}/?view=${roomId}&scene`;
+  const viewerOptions = [
+    'autoplay',
+    'cleanoutput',
+    'transparent=0',
+    'codec=h264',
+    'quality=2',
+    'cover',
+  ];
+  viewerUrl += '&' + viewerOptions.join('&');
+  
+  if (password || VDO_NINJA_CONFIG. defaultPassword) {
+    viewerUrl += `&password=${password || VDO_NINJA_CONFIG.defaultPassword}`;
+  }
+
+  return { broadcasterUrl, viewerUrl };
+}
+
+// ============================================
+// ENDPOINTS NUEVOS DE GESTIÓN DE STREAMS
+// ============================================
+
+// CREAR/OBTENER sala para un streamer
+app.post("/api/stream/room", (req: Request, res: Response) => {
+  console.log("📥 [Stream] Request recibido en /api/stream/room");
+  
+  try {
+    const { streamerName, password } = req.body;
+    
+    if (!streamerName) {
+      return res.status(400).json({ error: 'streamerName es requerido' });
+    }
+
+    const roomId = generateRoomId(streamerName);
+    const { broadcasterUrl, viewerUrl } = buildVDOUrls(roomId, password);
+
+    let stream = activeStreams.get(streamerName);
+    
+    if (!stream) {
+      stream = {
+        streamerName,
+        roomId,
+        broadcasterUrl,
+        viewerUrl,
+        isLive: false,
+        startedAt: new Date(),
+        lastActivity: new Date(),
+      };
+      activeStreams. set(streamerName, stream);
+    } else {
+      stream.lastActivity = new Date();
+    }
+
+    console.log(`✅ [Stream] Sala lista para ${streamerName}: ${roomId}`);
+
+    res.json({
+      roomId: stream.roomId,
+      broadcasterUrl: stream.broadcasterUrl,
+      viewerUrl: stream.viewerUrl,
+      isLive: stream.isLive,
+      streamerName: stream.streamerName,
+    });
+  } catch (error) {
+    console.error("❌ [Stream] Error en /api/stream/room:", error);
+    res.status(500).json({ error: 'Error al crear/obtener sala' });
+  }
+});
+
+// INICIAR transmisión
+app.post("/api/stream/start", (req: Request, res: Response) => {
+  console.log("📥 [Stream] Request recibido en /api/stream/start");
+  
+  try {
+    const { streamerName, title, category } = req.body;
+    
+    if (!streamerName) {
+      return res. status(400).json({ error: 'streamerName es requerido' });
+    }
+
+    const roomId = generateRoomId(streamerName);
+    let stream = activeStreams.get(streamerName);
+
+    if (!stream) {
+      const { broadcasterUrl, viewerUrl } = buildVDOUrls(roomId);
+      stream = {
+        streamerName,
+        roomId,
+        broadcasterUrl,
+        viewerUrl,
+        isLive: true,
+        startedAt: new Date(),
+        lastActivity: new Date(),
+        title,
+        category,
+      };
+      activeStreams.set(streamerName, stream);
+    } else {
+      stream.isLive = true;
+      stream.startedAt = new Date();
+      stream.lastActivity = new Date();
+      stream.title = title;
+      stream.category = category;
+    }
+
+    console.log(`✅ [Stream] ${streamerName} está ahora EN VIVO`);
+
+    res.json({
+      success: true,
+      message: 'Stream iniciado',
+      stream: {
+        roomId: stream. roomId,
+        broadcasterUrl: stream.broadcasterUrl,
+        viewerUrl: stream.viewerUrl,
+        isLive: stream.isLive,
+        streamerName: stream.streamerName,
+      },
+    });
+  } catch (error) {
+    console. error("❌ [Stream] Error en /api/stream/start:", error);
+    res.status(500).json({ error: 'Error al iniciar stream' });
+  }
+});
+
+// DETENER transmisión
+app. post("/api/stream/stop", (req: Request, res: Response) => {
+  console.log("📥 [Stream] Request recibido en /api/stream/stop");
+  
+  try {
+    const { streamerName } = req.body;
+    
+    if (!streamerName) {
+      return res.status(400).json({ error: 'streamerName es requerido' });
+    }
+
+    const stream = activeStreams.get(streamerName);
+
+    if (stream) {
+      stream.isLive = false;
+      stream.lastActivity = new Date();
+      console.log(`✅ [Stream] ${streamerName} detuvo su transmisión`);
+    }
+
+    res.json({
+      success: true,
+      message: 'Stream detenido',
+    });
+  } catch (error) {
+    console.error("❌ [Stream] Error en /api/stream/stop:", error);
+    res.status(500). json({ error: 'Error al detener stream' });
+  }
+});
+
+// OBTENER estado de un stream específico
+app.get("/api/stream/status/:streamerName", (req: Request, res: Response) => {
+  console.log("📥 [Stream] Request recibido en /api/stream/status");
+  
+  try {
+    const { streamerName } = req.params;
+    
+    if (!streamerName) {
+      return res.status(400).json({ error: 'streamerName es requerido' });
+    }
+    
+    const stream = activeStreams.get(streamerName);
+
+    if (! stream) {
+      return res. json({
+        exists: false,
+        isLive: false,
+        message: 'Stream no encontrado',
+      });
+    }
+
+    res.json({
+      exists: true,
+      isLive: stream.isLive,
+      roomId: stream.roomId,
+      viewerUrl: stream.viewerUrl,
+      streamerName: stream.streamerName,
+      title: stream.title,
+      category: stream.category,
+      startedAt: stream.startedAt,
+    });
+  } catch (error) {
+    console.error("❌ [Stream] Error en /api/stream/status:", error);
+    res.status(500). json({ error: 'Error al obtener estado del stream' });
+  }
+});
+
+// LISTAR todos los streams activos
+app.get("/api/streams/live", (req: Request, res: Response) => {
+  console. log("📥 [Stream] Request recibido en /api/streams/live");
+  
+  try {
+    const liveStreams = Array.from(activeStreams.values())
+      .filter(stream => stream.isLive)
+      . map(stream => ({
+        streamerName: stream.streamerName,
+        roomId: stream. roomId,
+        viewerUrl: stream.viewerUrl,
+        title: stream.title,
+        category: stream.category,
+        startedAt: stream.startedAt,
+      }));
+
+    res.json({
+      count: liveStreams.length,
+      streams: liveStreams,
+    });
+  } catch (error) {
+    console. error("❌ [Stream] Error en /api/streams/live:", error);
+    res.status(500).json({ error: 'Error al listar streams' });
+  }
+});
+
+// ============================================
+// ENDPOINTS LEGACY DE VDO.NINJA
+// ============================================
 
 // ENDPOINT: Obtener URL para ver stream
 app.get("/api/live-url", (req: Request, res: Response) => {
   console.log("📥 [VDO.Ninja] Request recibido en /api/live-url");
   
   try {
-    let viewUrl = `${VDO_NINJA_CONFIG.baseUrl}/?view=${VDO_NINJA_CONFIG.roomId}&scene`;
-    
-    const options = [
-      'autoplay',
-      'cleanoutput',
-      'transparent',
-      'codec=h264',
-      'quality=2',
-    ];
-    
-    viewUrl += '&' + options.join('&');
-    
-    if (VDO_NINJA_CONFIG. password) {
-      viewUrl += `&password=${VDO_NINJA_CONFIG.password}`;
-    }
+    const roomId = VDO_NINJA_CONFIG. defaultRoomId;
+    const { broadcasterUrl, viewerUrl } = buildVDOUrls(roomId);
 
-    const broadcasterUrl = `${VDO_NINJA_CONFIG.baseUrl}/?push=${VDO_NINJA_CONFIG.roomId}${
-      VDO_NINJA_CONFIG. password ? '&password=' + VDO_NINJA_CONFIG.password : ''
-    }`;
-
-    console.log("✅ [VDO.Ninja] Respuesta enviada correctamente");
+    console.log("✅ [VDO. Ninja] Respuesta enviada correctamente");
     
     res.json({
-      url: viewUrl,
-      roomId: VDO_NINJA_CONFIG.roomId,
+      url: viewerUrl,
+      roomId: roomId,
       broadcaster: broadcasterUrl,
       provider: 'VDO.Ninja'
     });
@@ -72,49 +314,37 @@ app.get("/api/live-broadcaster", (req: Request, res: Response) => {
   console.log("📥 [VDO.Ninja] Request recibido en /api/live-broadcaster");
   
   try {
-    let broadcasterUrl = `${VDO_NINJA_CONFIG.baseUrl}/?push=${VDO_NINJA_CONFIG.roomId}`;
-    
-    const options = [
-      'autostart',
-      'codec=h264',
-      'quality=2',
-      'stereo',
-    ];
-    
-    broadcasterUrl += '&' + options.join('&');
-    
-    if (VDO_NINJA_CONFIG.password) {
-      broadcasterUrl += `&password=${VDO_NINJA_CONFIG. password}`;
-    }
+    const roomId = VDO_NINJA_CONFIG.defaultRoomId;
+    const { broadcasterUrl } = buildVDOUrls(roomId);
 
     console.log("✅ [VDO.Ninja] Respuesta enviada correctamente");
 
     res.json({
       broadcasterUrl,
-      roomId: VDO_NINJA_CONFIG.roomId,
+      roomId: roomId,
       instructions: 'Abre esta URL en tu navegador para comenzar a transmitir'
     });
   } catch (error) {
-    console.error("❌ [VDO.Ninja] Error en /api/live-broadcaster:", error);
+    console.error("❌ [VDO. Ninja] Error en /api/live-broadcaster:", error);
     res.status(500).json({ error: 'Error al generar URL del broadcaster' });
   }
 });
 
-// ENDPOINT: Crear sala PERSONALIZADA por usuario/streamer
+// ENDPOINT: Crear sala PERSONALIZADA por usuario/streamer (LEGACY)
 app.post("/api/live-room/create", async (req: Request, res: Response) => {
   console.log("📥 [VDO.Ninja] Request recibido en /api/live-room/create");
   
   try {
     const { ID_Usuario, NombreUsuario } = req.body;
     
-    if (!ID_Usuario || !NombreUsuario) {
-      return res.status(400).json({ error: 'ID_Usuario y NombreUsuario son requeridos' });
+    if (!ID_Usuario || ! NombreUsuario) {
+      return res.status(400). json({ error: 'ID_Usuario y NombreUsuario son requeridos' });
     }
 
     const roomId = `stream-${NombreUsuario}-${ID_Usuario}`. toLowerCase(). replace(/\s+/g, '-');
     const password = process.env.VDO_NINJA_PASSWORD || '';
 
-    let viewUrl = `${VDO_NINJA_CONFIG.baseUrl}/?view=${roomId}&scene&autoplay&cleanoutput&transparent&codec=h264&quality=2`;
+    let viewUrl = `${VDO_NINJA_CONFIG.baseUrl}/? view=${roomId}&scene&autoplay&cleanoutput&transparent&codec=h264&quality=2`;
     let broadcasterUrl = `${VDO_NINJA_CONFIG.baseUrl}/?push=${roomId}&autostart&codec=h264&quality=2&stereo`;
     
     if (password) {
@@ -122,7 +352,7 @@ app.post("/api/live-room/create", async (req: Request, res: Response) => {
       broadcasterUrl += `&password=${password}`;
     }
 
-    console. log("✅ [VDO.Ninja] Sala personalizada creada:", roomId);
+    console.log("✅ [VDO.Ninja] Sala personalizada creada:", roomId);
 
     res.json({
       roomId,
@@ -132,12 +362,14 @@ app.post("/api/live-room/create", async (req: Request, res: Response) => {
       status: 'Sala creada exitosamente'
     });
   } catch (error) {
-    console.error("❌ [VDO.Ninja] Error creando sala:", error);
+    console.error("❌ [VDO. Ninja] Error creando sala:", error);
     res.status(500).json({ error: 'Error al crear sala de transmisión' });
   }
 });
 
+// ============================================
 // ENDPOINTS DE USUARIOS
+// ============================================
 
 app.post("/Registrar_Usuario", async (req : Request, resp : Response) => {
     try {
@@ -170,8 +402,8 @@ app.post("/Registrar_Usuario", async (req : Request, resp : Response) => {
 
 app.post("/Validar_Usuario", async (req : Request, resp : Response) => {
     try {
-      const { NombreUsuario, Contraseña } = req.body
-      const usuario = await prisma. usuario.findFirst({
+      const { NombreUsuario, Contraseña } = req. body
+      const usuario = await prisma.usuario. findFirst({
         where: {
           NombreUsuario, Contraseña
         },
@@ -195,7 +427,7 @@ app.post("/Validar_Usuario", async (req : Request, resp : Response) => {
 app.post("/Suscrito", async (req: Request, resp: Response) => {
     try {
       const { ID_Usuario } = req.body
-      const suscripciones = await prisma.suscripcion. findMany({
+      const suscripciones = await prisma.suscripcion.findMany({
         where: {
           ID_Viewer: Number(ID_Usuario)
         },
@@ -218,7 +450,7 @@ app.post("/Suscrito", async (req: Request, resp: Response) => {
 
 app.post("/SuscripcioneMias", async (req: Request, resp: Response) => {
     try{
-      const { ID_Streamer } = req. body
+      const { ID_Streamer } = req.body
       const suscripciones = await prisma.chatStreamer.findMany({
         where:{
           ID_Streamer: Number(ID_Streamer)
@@ -257,14 +489,14 @@ app.get("/TODOS", async (req: Request, resp: Response) => {
 
 app.post("/Crear_Suscripcion", async (req : Request, resp : Response) => {
     try {
-      const { ID_Streamer, ID_Viewer } = req. body
+      const { ID_Streamer, ID_Viewer } = req.body
       const suscricpcion = await prisma.suscripcion.create({
         data: {
           ID_Streamer: Number(ID_Streamer),
           ID_Viewer: Number(ID_Viewer)
         }
       })
-      resp.status(200).json(suscricpcion)
+      resp. status(200).json(suscricpcion)
     } catch (err){
       console.error(err)
       resp.status(400). json({ error: "Error creando suscripción" })
@@ -289,7 +521,7 @@ app.post("/Eliminar_Suscripcion", async (req : Request, resp : Response) => {
     }
 })
 
-app.post("/Crear_ChatStreamer", async (req : Request, resp : Response) => {
+app. post("/Crear_ChatStreamer", async (req : Request, resp : Response) => {
     try {
       const { ID_Streamer, ID_Viewer } = req.body
       const chatStreamer =  await prisma.chatStreamer.create({
@@ -306,17 +538,17 @@ app.post("/Crear_ChatStreamer", async (req : Request, resp : Response) => {
           }
         }
       })
-      resp. status(200).json(chatStreamer)
+      resp.status(200).json(chatStreamer)
     } catch (err){
       console.error(err)
-      resp.status(400).json({ error: "Error creando chat streamer" })
+      resp.status(400). json({ error: "Error creando chat streamer" })
     }
 })
 
 app.post("/ObtenerDatosUsuario", async (req : Request, resp : Response) => {
     try {
       const { ID_Usuario } = req.body
-      const datosUsuario = await prisma.usuario.findUnique({
+      const datosUsuario = await prisma. usuario.findUnique({
         where: {
           ID: Number(ID_Usuario)
         },
@@ -333,7 +565,7 @@ app.post("/ObtenerDatosUsuario", async (req : Request, resp : Response) => {
       resp.status(200).json(datosUsuario)
     } catch (err){
       console.error(err)
-      resp.status(400).json({ error: "Error obteniendo datos de usuario" })
+      resp.status(400). json({ error: "Error obteniendo datos de usuario" })
     }
 })
 
@@ -355,7 +587,7 @@ app.post("/VIendoDirecto", async (req : Request, resp : Response) => {
           Viendo: Viendo
         }
       })
-      resp.status(200).json(ViendoDirecto)
+      resp.status(200). json(ViendoDirecto)
       }
       
     } catch (err){
@@ -389,7 +621,6 @@ app.post("/ObtenerDatosChat", async (req : Request, resp : Response) => {
     }
 })
 
-
 app.post("/Actualizar_NivelViewer", async (req : Request, resp : Response) => {
     try {
       const { ID_ChatViewer, ID_chatStreamer, NuevoNivel } = req.body
@@ -422,7 +653,7 @@ app.post("/Actualizar_NivelStreams", async (req : Request, resp : Response) => {
           NivelStreams: Number(NuevoNivel)
         }
       })
-      resp. status(200).json(NivelStreams)
+      resp.status(200). json(NivelStreams)
     } catch (err){
       console.error(err)
       resp.status(400).json({ error: "Error actualizando nivel streams" })
@@ -478,7 +709,7 @@ app.post("/Asignar_Logro", async (req : Request, resp : Response) => {
           Completado: Completado
         }
       })
-      resp. status(200).json(NLogro)
+      resp.status(200). json(NLogro)
     } catch (err){
       console.error(err)
       resp.status(400).json({ error: "Error creando logro" })
@@ -513,7 +744,7 @@ app.post("/LogrosUsuario", async (req : Request, resp : Response) => {
 app.get("/LogrosPlantilla", async (req : Request, resp : Response) => {
     try {
       const LogrosPlantilla = await prisma.logros.findMany({})
-      resp.status(200).json(LogrosPlantilla)
+      resp.status(200). json(LogrosPlantilla)
     } catch (err){
       console.error(err)
       resp.status(400).json({ error: "Error obteniendo logros plantilla" })
@@ -544,7 +775,7 @@ app.post("/Actualizar_Logro", async (req : Request, resp : Response) => {
 app.post("/Todos_Los_Logros", async (req : Request, resp : Response) => {
     try {
       const {ID_Usuario} = req.body
-      const TodosLosLogros = await prisma.logrosUsuario.findMany({
+      const TodosLosLogros = await prisma. logrosUsuario.findMany({
         where: {
           ID_Usuario: Number(ID_Usuario)
         },
@@ -558,7 +789,6 @@ app.post("/Todos_Los_Logros", async (req : Request, resp : Response) => {
       resp.status(400).json({ error: "Error obteniendo todos los logros" })
     }
 })
-
 
 app.get("/Mas_Vistos", async (req: Request, res: Response) => {
   try {
@@ -630,7 +860,7 @@ app.post("/SeguidosEnVIvo", async (req: Request, resp: Response) => {
       resp.status(200).json(SeguidosEnVivo)
     } catch (err){
       console.error(err)
-      resp.status(400).json({ error: "Error obteniendo seguidos en vivo" })
+      resp.status(400). json({ error: "Error obteniendo seguidos en vivo" })
     }
 })
 
@@ -707,7 +937,11 @@ app.post("/datos_Stream", async (req : Request, resp : Response) => {
     }
 })
 
-app.post("/Crear_VIdeo", async (req : Request, resp : Response) => {
+// ============================================
+// ENDPOINTS DE VIDEOS
+// ============================================
+
+app. post("/Crear_VIdeo", async (req : Request, resp : Response) => {
     try {
       const { titulo, url, estado, categoriaDeVideo, ID_Usuario } = req.body
       const ListaCategorias = categoriaDeVideo.join(", ");
@@ -720,7 +954,7 @@ app.post("/Crear_VIdeo", async (req : Request, resp : Response) => {
           ID_Usuario: Number(ID_Usuario)
         }
       })
-      resp.status(200).json(video)
+      resp.status(200). json(video)
     } catch (err){
       console.error(err)
       resp.status(400).json({ error: "Error creando video" })
@@ -782,7 +1016,7 @@ app.post("/Eliminar_Video", async (req : Request, resp : Response) => {
 app.post("/VerMisVideos", async (req: Request, resp: Response) => {
     try {
       const { ID_Usuario } = req.body
-      const MisVideos = await prisma. video.findMany({
+      const MisVideos = await prisma.video.findMany({
         where:{
           ID_Usuario: Number(ID_Usuario)
         },
@@ -803,24 +1037,65 @@ app.post("/VerMisVideos", async (req: Request, resp: Response) => {
       resp.status(200).json(MisVideos)
     } catch (err){
       console.error(err)
-      resp.status(400).json({ error: "Error obteniendo mis videos" })
+      resp.status(400). json({ error: "Error obteniendo mis videos" })
     }
 })
 
-// ENDPOINTS DE BUSQUEDA
+app.get("/videos/buscar", async (req: Request, resp: Response) => {
+   
+    const busqueda = req.query.q as string;
 
-// Busqueda unificada - busca usuarios, categorias/juegos y videos
-app.get("/buscar", async (req: Request, resp: Response) => {
-    const busqueda = req. query.q as string;
-
-    if (!busqueda || busqueda.trim() === "") {
+    if (!busqueda) {
         return resp.status(400).json({ 
-            error: "Escribe algo para buscar.  Ejemplo: /buscar?q=minecraft" 
+            error: "Escribe algo para buscar.  Ejemplo: /videos/buscar? q=minecraft" 
         });
     }
 
     try {
-        // Buscar usuarios
+        const videosEncontrados = await prisma.video.findMany({
+            where: {
+                OR: [
+                    { 
+                        Titulo: { contains: busqueda, mode: 'insensitive' } 
+                    },
+                    { 
+                        CategoriaDeVideo: { contains: busqueda, mode: 'insensitive' } 
+                    },
+                    { 
+                        usuario: { 
+                            NombreUsuario: { contains: busqueda, mode: 'insensitive' }
+                        }
+                    }
+                ]
+            },
+            include: {
+                usuario: true 
+            }
+        });
+
+        resp.status(200).json(videosEncontrados);
+
+    } catch (error) {
+        console.error("Error buscando videos:", error);
+        resp.status(500).json({ error: "Error al realizar la búsqueda" });
+    }
+});
+
+// ============================================
+// ENDPOINTS DE BÚSQUEDA
+// ============================================
+
+// Busqueda unificada
+app.get("/buscar", async (req: Request, resp: Response) => {
+    const busqueda = req.query.q as string;
+
+    if (!busqueda || busqueda.trim() === "") {
+        return resp.status(400).json({ 
+            error: "Escribe algo para buscar. Ejemplo: /buscar?q=minecraft" 
+        });
+    }
+
+    try {
         const usuarios = await prisma.usuario.findMany({
             where: {
                 NombreUsuario: { contains: busqueda, mode: 'insensitive' }
@@ -835,8 +1110,7 @@ app.get("/buscar", async (req: Request, resp: Response) => {
             take: 10
         });
 
-        // Buscar juegos/categorías
-        const juegos = await prisma.juego. findMany({
+        const juegos = await prisma.juego.findMany({
             where: {
                 Nombre: { contains: busqueda, mode: 'insensitive' }
             },
@@ -848,7 +1122,6 @@ app.get("/buscar", async (req: Request, resp: Response) => {
             take: 10
         });
 
-        // Buscar videos
         const videos = await prisma.video.findMany({
             where: {
                 OR: [
@@ -872,14 +1145,14 @@ app.get("/buscar", async (req: Request, resp: Response) => {
             take: 10
         });
 
-        resp.status(200). json({
+        resp.status(200).json({
             query: busqueda,
             resultados: {
                 usuarios,
                 categorias: juegos,
                 videos
             },
-            total: usuarios.length + juegos.length + videos. length
+            total: usuarios.length + juegos.length + videos.length
         });
 
     } catch (error) {
@@ -892,14 +1165,14 @@ app.get("/buscar", async (req: Request, resp: Response) => {
 app.get("/buscar/usuarios", async (req: Request, resp: Response) => {
     const busqueda = req.query.q as string;
 
-    if (!busqueda || busqueda. trim() === "") {
-        return resp. status(400).json({ 
+    if (!busqueda || busqueda.trim() === "") {
+        return resp.status(400).json({ 
             error: "Escribe algo para buscar" 
         });
     }
 
     try {
-        const usuarios = await prisma. usuario.findMany({
+        const usuarios = await prisma.usuario.findMany({
             where: {
                 NombreUsuario: { contains: busqueda, mode: 'insensitive' }
             },
@@ -918,12 +1191,12 @@ app.get("/buscar/usuarios", async (req: Request, resp: Response) => {
 
     } catch (error) {
         console.error("Error buscando usuarios:", error);
-        resp. status(500).json({ error: "Error al buscar usuarios" });
+        resp.status(500).json({ error: "Error al buscar usuarios" });
     }
 });
 
-// Búsqueda solo de categorias/juegos
-app. get("/buscar/categorias", async (req: Request, resp: Response) => {
+// Búsqueda de categorias/juegos
+app.get("/buscar/categorias", async (req: Request, resp: Response) => {
     const busqueda = req.query.q as string;
 
     if (!busqueda || busqueda.trim() === "") {
@@ -953,7 +1226,9 @@ app. get("/buscar/categorias", async (req: Request, resp: Response) => {
     }
 });
 
+// ============================================
 // ENDPOINTS DE REGALOS
+// ============================================
 
 app.post("/regalos/crear", async (req : Request, resp : Response) => {
     const datosRecibidos = req.body
@@ -974,7 +1249,7 @@ app.post("/regalos/crear", async (req : Request, resp : Response) => {
     resp.status(200).json(regalo)
 })
 
-app.get("/regalos/eliminar", async (req: Request, resp: Response) => {
+app. get("/regalos/eliminar", async (req: Request, resp: Response) => {
     const nombreParaBorrar = req.query.nombre as string; 
 
     if (!nombreParaBorrar) {
@@ -1028,82 +1303,63 @@ app.post("/regalos/actualizar", async (req : Request, resp : Response) => {
     }
 })
 
-
-//obtener regalos
-
 app.get("/regalos", async (req: Request, resp: Response) => {
     try {
-        const todosLosRegalos = await prisma.regalo.findMany({
-        })
-
-        resp.status(200).json(todosLosRegalos)
+        const todosLosRegalos = await prisma.regalo.findMany({})
+        resp.status(200). json(todosLosRegalos)
     } catch (error) {
         console.error(error)
         resp.status(500).json({ error: "Hubo un error al obtener la lista" })
     }
 })
 
-app.get("/videos/buscar", async (req: Request, resp: Response) => {
-   
-    const busqueda = req.query.q as string;
+// ============================================
+// LIMPIEZA AUTOMÁTICA DE STREAMS INACTIVOS
+// ============================================
 
-    if (!busqueda) {
-        return resp.status(400).json({ 
-            error: "Escribe algo para buscar. Ejemplo: /videos/buscar?q=minecraft" 
-        });
+setInterval(() => {
+  const now = new Date();
+  const oneHour = 60 * 60 * 1000;
+  
+  for (const [streamerName, stream] of activeStreams. entries()) {
+    const inactiveTime = now. getTime() - stream.lastActivity.getTime();
+    if (! stream.isLive && inactiveTime > oneHour) {
+      activeStreams.delete(streamerName);
+      console.log(`🗑️ [Stream] Sala de ${streamerName} eliminada por inactividad`);
     }
+  }
+}, 3600000); // Cada hora
 
-    try {
-        const videosEncontrados = await prisma.video.findMany({
-            where: {
-                OR: [
-                   
-                    { 
-                        Titulo: { contains: busqueda, mode: 'insensitive' } 
-                    },
-                    { 
-                        CategoriaDeVideo: { contains: busqueda, mode: 'insensitive' } 
-                    },
-                    { 
-                        usuario: { 
-                            NombreUsuario: { contains: busqueda, mode: 'insensitive' }
-                        }
-                    }
-                ]
-            },
-        
-            include: {
-                usuario: true 
-            }
-        });
+// ============================================
+// INICIAR SERVIDOR
+// ============================================
 
-        resp.status(200).json(videosEncontrados);
+app.listen(PORT, () => {
+  console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`)
+  console.log(`📡 Sistema de streams VDO. Ninja inicializado`)
+  console.log(`🗄️  Prisma Client conectado`)
+  console.log(`\n📋 ENDPOINTS DE STREAMING:`)
+  console. log(`   [MODERNOS]`)
+  console.log(`   POST   /api/stream/room          - Crear/obtener sala`)
+  console.log(`   POST   /api/stream/start         - Iniciar transmisión`)
+  console.log(`   POST   /api/stream/stop          - Detener transmisión`)
+  console.log(`   GET    /api/stream/status/:name  - Estado del stream`)
+  console.log(`   GET    /api/streams/live         - Listar streams activos`)
+  console.log(`\n   [LEGACY]`)
+  console.log(`   GET    /api/live-url             - URL de visualización`)
+  console.log(`   GET    /api/live-broadcaster     - URL de broadcaster`)
+  console.log(`   POST   /api/live-room/create     - Crear sala personalizada\n`)
+})
 
-    } catch (error) {
-        console.error("Error buscando videos:", error);
-        resp.status(500).json({ error: "Error al realizar la búsqueda" });
-    }
+// Manejar cierre graceful
+process.on('SIGINT', async () => {
+  console.log('\n⏸️  Cerrando servidor.. .');
+  await prisma.$disconnect();
+  process.exit(0);
 });
 
-
-
-//ENDPOINT PARA LA TRANSMISIÓN EN VIVO
-app.get("/api/live-url", (req: Request, res: Response) => {
-  const liveUrl = process.env.LIVE_EMBED_URL
-
-  if (!liveUrl) {
-    return res.status(500).json({ error: "LIVE_EMBED_URL no está configurada" })
-  }
-
-  res.json({ url: liveUrl })
-})
-
-// Iniciar servidor
-app.listen(PORT, () => {
-  console.log(`Backend escuchando en el puerto ${PORT}`)
-  console.log(`VDO. Ninja configurado - Room ID: ${VDO_NINJA_CONFIG. roomId}`)
-  console.log(`Endpoints disponibles:`)
-  console. log(`   - GET  /api/live-url (para viewers)`)
-  console.log(`   - GET  /api/live-broadcaster (para streamers)`)
-  console.log(`   - POST /api/live-room/create (crear salas personalizadas)`)
-})
+process.on('SIGTERM', async () => {
+  console.log('\n⏸️  Cerrando servidor.. .');
+  await prisma.$disconnect();
+  process.exit(0);
+});
