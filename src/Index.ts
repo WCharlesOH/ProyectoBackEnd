@@ -161,7 +161,7 @@ app.post("/Registrar_Usuario", async (req : Request, resp : Response) => {
       }
     })
 
-    resp.status(200).json(usuario)
+    resp.status(200).json(usuario.ID)
   } catch (err) {
     console.error(err)
     resp.status(400).json({ error: "Error creando usuario" })
