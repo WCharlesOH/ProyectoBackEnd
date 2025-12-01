@@ -437,7 +437,8 @@ app.post("/Suscrito", async (req: Request, resp: Response) => {
             select: {
               NombreUsuario: true,
               NivelStreams: true,
-              ImagenPerfil: true
+              ImagenPerfil: true,
+              EnVivo: true,
             }
           }
         }
@@ -1182,7 +1183,6 @@ app.get("/buscar", async (req: Request, resp: Response) => {
             select: {
                 ID_Juego: true,
                 Nombre: true,
-                Imagen: true
             },
             take: 10
         });
@@ -1278,7 +1278,6 @@ app.get("/buscar/categorias", async (req: Request, resp: Response) => {
             select: {
                 ID_Juego: true,
                 Nombre: true,
-                Imagen: true
             },
             take: 20
         });
