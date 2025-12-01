@@ -1369,7 +1369,15 @@ app.post("/regalos/actualizar", async (req : Request, resp : Response) => {
 
 app.get("/regalos", async (req: Request, resp: Response) => {
     try {
-        const todosLosRegalos = await prisma.regalo.findMany({})
+        const id = Number(req.query.ID)
+        const todosLosRegalos = await prisma.usuario.findMany({
+          where: {
+            ID: id
+          },
+          select:{
+            regalos: true,
+          }
+        })
         resp.status(200). json(todosLosRegalos)
     } catch (error) {
         console.error(error)
