@@ -1080,7 +1080,7 @@ app.post("/StreamersPorJuego", async (req: Request, resp: Response) => {
                 ID_Juego: juego. ID_Juego
             },
             select: {
-                video: {
+                Vedeo: {
                     select: {
                         ID_Usuario: true,
                         Estado: true,
@@ -1102,14 +1102,14 @@ app.post("/StreamersPorJuego", async (req: Request, resp: Response) => {
 
         // Filtrar solo usuarios en vivo con video activo
         const streamersEnVivo = videosConJuego
-            .filter((v: { video: { Estado: boolean; usuario: { EnVivo: boolean } } }) => v.video?. Estado === true && v.video?.usuario?.EnVivo === true)
-            .map((v: { video: { usuario: { ID: any; NombreUsuario: any; ImagenPerfil: any; NivelStreams: any }; Titulo: any; CategoriaDeVideo: any } }) => ({
-                ID: v.video?. usuario?.ID,
-                NombreUsuario: v.video?. usuario?.NombreUsuario,
-                ImagenPerfil: v.video?.usuario?.ImagenPerfil,
-                NivelStreams: v.video?.usuario?.NivelStreams,
-                TituloStream: v.video?. Titulo,
-                Categoria: v.video?.CategoriaDeVideo
+            .filter((v: { Vedeo: { Estado: boolean; usuario: { EnVivo: boolean } } }) => v.Vedeo?. Estado === true && v.Vedeo?.usuario?.EnVivo === true)
+            .map((v: { Vedeo: { usuario: { ID: any; NombreUsuario: any; ImagenPerfil: any; NivelStreams: any }; Titulo: any; CategoriaDeVideo: any } }) => ({
+                ID: v.Vedeo?. usuario?.ID,
+                NombreUsuario: v.Vedeo?. usuario?.NombreUsuario,
+                ImagenPerfil: v.Vedeo?.usuario?.ImagenPerfil,
+                NivelStreams: v.Vedeo?.usuario?.NivelStreams,
+                TituloStream: v.Vedeo?. Titulo,
+                Categoria: v.Vedeo?.CategoriaDeVideo
             }));
 
         resp.status(200).json({
