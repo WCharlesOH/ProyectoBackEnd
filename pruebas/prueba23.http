@@ -3,5 +3,5 @@ Content-Type: application/json
 
 {
     "ID_chatStreamer": 1,
-    "ID_ChatViewer": 5,
+    "ID_ChatViewer": 6
 }

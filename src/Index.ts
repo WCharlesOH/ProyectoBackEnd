@@ -860,7 +860,7 @@ app.get("/Mas_Visto", async (req: Request, res: Response) => {
   try {
     const streamers = await prisma.usuario.findMany({
       where: {
-        EnVivo: false
+        EnVivo: true
       },
       take: 1,
       select: {
