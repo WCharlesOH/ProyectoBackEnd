@@ -1675,21 +1675,43 @@ app.post("/regalos/actualizar", async (req : Request, resp : Response) => {
     }
 })
 
-app.get("/regalos", async (req: Request, resp: Response) => {
+app.post("/regalos", async (req: Request, resp: Response) => {
     try {
-        const id = Number(req.query.ID)
-        const todosLosRegalos = await prisma.usuario.findMany({
+        const {id} = req.body
+        const todosLosRegalos = await prisma.regalo.findMany({
           where: {
-            ID: id
+            ID_Streamer: id,
           },
-          select:{
-            regalos: true,
-          }
         })
-        resp.status(200). json(todosLosRegalos)
+        resp.status(200).json(todosLosRegalos)
     } catch (error) {
         console.error(error)
         resp.status(500).json({ error: "Hubo un error al obtener la lista" })
+    }
+})
+
+app.get("/regalosbyMirko", async (req: Request, resp: Response) => {
+    try {
+        const idUsuario = Number(req.query.ID);
+
+        if (!idUsuario) {
+            return resp.status(400).json({ error: "Falta ID de usuario" });
+        }
+
+        // Buscamos regalos donde el ID del Streamer sea el tuyo
+        const misRegalos = await prisma.regalo.findMany({
+            where: {
+                // Asumiendo que en tu tabla Regalo la relación se llama 'ID_Streamer'
+                // O si es por relación: streamer: { ID: idUsuario }
+                streamer: {
+                    ID: idUsuario
+                }
+            }
+        })
+        resp.status(200).json(misRegalos)
+    } catch (error) {
+        console.error(error)
+        resp.status(500).json({ error: "Error obteniendo regalos" })
     }
 })
 // ============================================
