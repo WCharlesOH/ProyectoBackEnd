@@ -569,6 +569,30 @@ app.post("/ObtenerDatosUsuario", async (req : Request, resp : Response) => {
     }
 })
 
+app.post("/ObtenerDatosUsuarioNombre", async (req : Request, resp : Response) => {
+    try {
+      const { NombreUsuario } = req.body
+      const datosUsuario = await prisma. usuario.findUnique({
+        where: {
+          NombreUsuario: NombreUsuario
+        },
+        select: {
+          ID: true,
+          NombreUsuario: true,
+          HorasTransmision: true,
+          ImagenPerfil: true,
+          Monedas: true,
+          NivelStreams: true,
+          Puntos: true
+        }
+      })
+      resp.status(200).json(datosUsuario)
+    } catch (err){
+      console.error(err)
+      resp.status(400). json({ error: "Error obteniendo datos de usuario" })
+    }
+})
+
 app.post("/VIendoDirecto", async (req : Request, resp : Response) => {
     try {
       const { ID_ChatViewer, ID_chatStreamer, Viendo, EnVivo } = req.body
