@@ -90,6 +90,8 @@ function buildVDOUrls(roomId: string, password?: string) {
 // ENDPOINTS NUEVOS DE GESTIÓN DE STREAMS
 // ============================================
 
+
+
 // CREAR/OBTENER sala para un streamer
 app.post("/api/stream/room", (req: Request, res: Response) => {
   console.log("📥 [Stream] Request recibido en /api/stream/room");
@@ -1033,6 +1035,94 @@ app.post("/Todos_Los_Logros", async (req : Request, resp : Response) => {
       resp.status(400).json({ error: "Error obteniendo todos los logros" })
     }
 })
+
+// ============================================
+// ENDPOINTS DE JUEGOS/CATEGORÍAS
+// ============================================
+
+app.get("/ObtenerJuegos", async (req: Request, resp: Response) => {
+    try {
+        const juegos = await prisma.juego.findMany({
+            select: {
+                ID_Juego: true,
+                Nombre: true,
+            }
+        });
+        resp.status(200).json(juegos);
+    } catch (err) {
+        console.error(err);
+        resp.status(400).json({ error: "Error obteniendo juegos" });
+    }
+});
+
+app.post("/StreamersPorJuego", async (req: Request, resp: Response) => {
+    try {
+        const { NombreJuego } = req.body;
+        
+        if (!NombreJuego) {
+            return resp.status(400).json({ error: "NombreJuego es requerido" });
+        }
+
+        // Obtener el ID del juego
+        const juego = await prisma.juego.findFirst({
+            where: {
+                Nombre: NombreJuego
+            }
+        });
+
+        if (!juego) {
+            return resp.status(404).json({ error: "Juego no encontrado" });
+        }
+
+        // Buscar videos activos (Estado: true) con ese juego
+        const videosConJuego = await prisma. juegosEnVideo.findMany({
+            where: {
+                ID_Juego: juego. ID_Juego
+            },
+            select: {
+                video: {
+                    select: {
+                        ID_Usuario: true,
+                        Estado: true,
+                        Titulo: true,
+                        CategoriaDeVideo: true,
+                        usuario: {
+                            select: {
+                                ID: true,
+                                NombreUsuario: true,
+                                ImagenPerfil: true,
+                                EnVivo: true,
+                                NivelStreams: true
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // Filtrar solo usuarios en vivo con video activo
+        const streamersEnVivo = videosConJuego
+            .filter((v: { video: { Estado: boolean; usuario: { EnVivo: boolean } } }) => v.video?. Estado === true && v.video?.usuario?.EnVivo === true)
+            .map((v: { video: { usuario: { ID: any; NombreUsuario: any; ImagenPerfil: any; NivelStreams: any }; Titulo: any; CategoriaDeVideo: any } }) => ({
+                ID: v.video?. usuario?.ID,
+                NombreUsuario: v.video?. usuario?.NombreUsuario,
+                ImagenPerfil: v.video?.usuario?.ImagenPerfil,
+                NivelStreams: v.video?.usuario?.NivelStreams,
+                TituloStream: v.video?. Titulo,
+                Categoria: v.video?.CategoriaDeVideo
+            }));
+
+        resp.status(200).json({
+            juego: NombreJuego,
+            totalStreamers: streamersEnVivo. length,
+            streamers: streamersEnVivo
+        });
+    } catch (err) {
+        console.error(err);
+        resp.status(400).json({ error: "Error obteniendo streamers por juego" });
+    }
+});
+
 
 app.get("/Mas_Vistos", async (req: Request, res: Response) => {
   try {
