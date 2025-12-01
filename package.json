@@ -2,10 +2,10 @@
   "name": "backend",
   "version": "1.0.0",
   "description": "",
-  "main": "dist/Index.js",
+  "main": "Index.js",
   "scripts": {
     "build": "npx tsc",
-    "start": "node dist/Index.js",
+    "start": "node ./dist/Index.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "ts-node-dev --respawn --transpile-only src/Index.ts"
   },
