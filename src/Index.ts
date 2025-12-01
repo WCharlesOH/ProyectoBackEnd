@@ -1312,10 +1312,164 @@ app.get("/regalos", async (req: Request, resp: Response) => {
         resp.status(500).json({ error: "Hubo un error al obtener la lista" })
     }
 })
+// ============================================
+// ENDPOINTS DE CHAT EN TIEMPO REAL
+// ============================================
 
-// ============================================
+interface MensajeChat {
+  id: string;
+  autor: string;
+  nivel: number;
+  texto: string;
+  hora: string;
+  avatarUrl?: string;
+  tipo?: "usuario" | "sistema" | "regalo";
+}
+
+// Almacenamiento temporal de mensajes por sala/streamer
+const chatRooms = new Map<string, MensajeChat[]>();
+
+// Obtener mensajes de un chat
+app.get("/api/chat/:streamerName/mensajes", (req: Request, res: Response) => {
+  console.log("📥 [Chat] Request recibido en /api/chat/:streamerName/mensajes");
+  
+  try {
+    const { streamerName } = req.params;
+    
+    if (!streamerName) {
+      return res.status(400).json({ error: 'streamerName es requerido' });
+    }
+    
+    const mensajes = chatRooms.get(streamerName) || [];
+    
+    res.json({
+      streamerName,
+      mensajes: mensajes.slice(-100), // Últimos 100 mensajes
+      count: mensajes.length,
+    });
+  } catch (error) {
+    console.error("❌ [Chat] Error al obtener mensajes:", error);
+    res.status(500).json({ error: 'Error al obtener mensajes' });
+  }
+});
+
+// Enviar mensaje a un chat
+app.post("/api/chat/:streamerName/mensaje", (req: Request, res: Response) => {
+  console. log(" Request recibido en /api/chat/:streamerName/mensaje");
+  
+  try {
+    const { streamerName } = req.params;
+    const mensaje: MensajeChat = req. body;
+
+    if (!streamerName) {
+      return res.status(400).json({ error: 'streamerName es requerido' });
+    }
+
+    if (!mensaje.id || !mensaje.autor || !mensaje.texto) {
+      return res.status(400). json({ error: 'Datos de mensaje incompletos' });
+    }
+
+    // Obtener o crear sala de chat
+    let mensajes = chatRooms.get(streamerName);
+    if (!mensajes) {
+      mensajes = [];
+      chatRooms.set(streamerName, mensajes);
+    }
+
+    // Agregar mensaje
+    mensajes.push(mensaje);
+
+    // Mantener solo los últimos 200 mensajes
+    if (mensajes.length > 200) {
+      mensajes. splice(0, mensajes.length - 200);
+    }
+
+    console.log(`✅ [Chat] Mensaje agregado en sala de ${streamerName}`);
+
+    res.json({
+      success: true,
+      mensaje,
+      totalMensajes: mensajes.length,
+    });
+  } catch (error) {
+    console. error("❌ [Chat] Error al enviar mensaje:", error);
+    res.status(500). json({ error: 'Error al enviar mensaje' });
+  }
+});
+
+// Limpiar mensajes de un chat
+app.delete("/api/chat/:streamerName/limpiar", (req: Request, res: Response) => {
+  console.log(" [Chat] Request recibido en /api/chat/:streamerName/limpiar");
+  
+  try {
+    const { streamerName } = req.params;
+    
+    if (!streamerName) {
+      return res.status(400).json({ error: 'streamerName es requerido' });
+    }
+    
+    chatRooms.delete(streamerName);
+    
+    console.log(`✅ [Chat] Mensajes limpiados para ${streamerName}`);
+    
+    res.json({
+      success: true,
+      message: `Chat de ${streamerName} limpiado`,
+    });
+  } catch (error) {
+    console.error("❌ [Chat] Error al limpiar chat:", error);
+    res.status(500).json({ error: 'Error al limpiar chat' });
+  }
+});
+
+// Obtener estadísticas de un chat
+app.get("/api/chat/:streamerName/stats", (req: Request, res: Response) => {
+  console. log("📥 [Chat] Request recibido en /api/chat/:streamerName/stats");
+  
+  try {
+    const { streamerName } = req.params;
+    
+    if (!streamerName) {
+      return res.status(400).json({ error: 'streamerName es requerido' });
+    }
+    
+    const mensajes = chatRooms.get(streamerName) || [];
+    
+    const usuarios = new Set(mensajes.map(m => m.autor));
+    const mensajesSistema = mensajes.filter(m => m.tipo === "sistema").length;
+    const mensajesUsuario = mensajes.filter(m => m.tipo === "usuario").length;
+    
+    res.json({
+      streamerName,
+      totalMensajes: mensajes.length,
+      usuariosActivos: usuarios.size,
+      mensajesSistema,
+      mensajesUsuario,
+    });
+  } catch (error) {
+    console.error("❌ [Chat] Error al obtener estadísticas:", error);
+    res.status(500).json({ error: 'Error al obtener estadísticas' });
+  }
+});
+
+// Limpieza automática de chats inactivos (cada hora)
+setInterval(() => {
+  const now = Date.now();
+  const oneHour = 60 * 60 * 1000;
+  
+  for (const [streamerName, mensajes] of chatRooms. entries()) {
+    if (mensajes.length === 0) continue;
+    
+    const ultimoMensaje = mensajes[mensajes.length - 1];
+    if (!ultimoMensaje) continue;
+    
+    const horaMensaje = ultimoMensaje.hora.split(':');
+
+  }
+}, 3600000);
+
 // LIMPIEZA AUTOMÁTICA DE STREAMS INACTIVOS
-// ============================================
+
 
 setInterval(() => {
   const now = new Date();
@@ -1330,22 +1484,20 @@ setInterval(() => {
   }
 }, 3600000); // Cada hora
 
-// ============================================
 // INICIAR SERVIDOR
-// ============================================
+
 
 app.listen(PORT, () => {
-  console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`)
-  console.log(`📡 Sistema de streams VDO. Ninja inicializado`)
-  console.log(`🗄️  Prisma Client conectado`)
-  console.log(`\n📋 ENDPOINTS DE STREAMING:`)
-  console. log(`   [MODERNOS]`)
+  console.log(` Servidor corriendo en http://localhost:${PORT}`)
+  console.log(` Sistema de streams VDO. Ninja inicializado`)
+  console.log(`  Prisma Client conectado`)
+  console.log(`\n ENDPOINTS DE STREAMING:`)
+
   console.log(`   POST   /api/stream/room          - Crear/obtener sala`)
   console.log(`   POST   /api/stream/start         - Iniciar transmisión`)
   console.log(`   POST   /api/stream/stop          - Detener transmisión`)
   console.log(`   GET    /api/stream/status/:name  - Estado del stream`)
   console.log(`   GET    /api/streams/live         - Listar streams activos`)
-  console.log(`\n   [LEGACY]`)
   console.log(`   GET    /api/live-url             - URL de visualización`)
   console.log(`   GET    /api/live-broadcaster     - URL de broadcaster`)
   console.log(`   POST   /api/live-room/create     - Crear sala personalizada\n`)
