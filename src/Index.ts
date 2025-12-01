@@ -367,6 +367,7 @@ app.post("/api/live-room/create", async (req: Request, res: Response) => {
   }
 });
 
+
 // ============================================
 // ENDPOINTS DE USUARIOS
 // ============================================
@@ -822,6 +823,46 @@ app.get("/Mas_Vistos", async (req: Request, res: Response) => {
         EnVivo: true
       },
       take: 20,
+      select: {
+        NombreUsuario: true,
+        ImagenPerfil: true,
+        NivelStreams: true,
+        _count: {
+          select: {
+            streamerCHat: true
+          }
+        },
+        streamerCHat: {
+          where: { Viendo: true },
+          select: {
+            ID_Viewer: true
+          }
+        }
+      }
+    })
+    const result = streamers.map((s: typeof streamers[0]) => ({
+      NombreUsuario: s.NombreUsuario,
+      ImagenPerfil: s.ImagenPerfil,
+      NivelStreams: s.NivelStreams,
+      ViendoCount: (s.streamerCHat ??  []).length,
+      TotalChats: s._count?. streamerCHat ?? 0,
+      streamerChat: s.streamerCHat 
+    }))
+
+    res.status(200).json(result)
+  } catch (err) {
+    console.error(err)
+    res.status(400).json({ error: "Error obteniendo los streamers más vistos" })
+  }
+})
+
+app.get("/Mas_Visto", async (req: Request, res: Response) => {
+  try {
+    const streamers = await prisma.usuario.findMany({
+      where: {
+        EnVivo: false
+      },
+      take: 1,
       select: {
         NombreUsuario: true,
         ImagenPerfil: true,
