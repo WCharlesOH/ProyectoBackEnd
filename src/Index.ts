@@ -367,10 +367,228 @@ app.post("/api/live-room/create", async (req: Request, res: Response) => {
   }
 });
 
+// ===========================================
+// ENDPOINTS DE ESTADISTICAS
+// ===========================================
+app.post("/Contar_Espectadores_Actuales", async (req: Request, resp: Response) => {
+    try {
+      const { ID_Streamer } = req. body;
+      
+      if (!ID_Streamer) {
+        return resp.status(400).json({ error: "ID_Streamer es requerido" });
+      }
+
+      // Contar viewers que están viendo actualmente (Viendo = true)
+      const espectadoresActuales = await prisma.chatStreamer.count({
+        where: {
+          ID_Streamer: Number(ID_Streamer),
+          Viendo: true
+        }
+      });
+
+      resp.status(200).json({ 
+        ID_Streamer: Number(ID_Streamer),
+        espectadores: espectadoresActuales 
+      });
+    } catch (err) {
+      console.error(err);
+      resp.status(400).json({ error: "Error contando espectadores actuales" });
+    }
+});
+
+// ENDPOINT: Obtener número total de seguidores de un streamer
+app.post("/Contar_Seguidores_Totales", async (req: Request, resp: Response) => {
+    try {
+      const { ID_Streamer } = req.body;
+      
+      if (!ID_Streamer) {
+        return resp.status(400).json({ error: "ID_Streamer es requerido" });
+      }
+
+      // Contar suscripciones donde el usuario es el streamer
+      const seguidoresTotales = await prisma. suscripcion.count({
+        where: {
+          ID_Streamer: Number(ID_Streamer)
+        }
+      });
+
+      resp.status(200).json({ 
+        ID_Streamer: Number(ID_Streamer),
+        seguidores: seguidoresTotales 
+      });
+    } catch (err) {
+      console.error(err);
+      resp.status(400).json({ error: "Error contando seguidores totales" });
+    }
+});
+
+// ENDPOINT: Obtener estadísticas completas de un streamer
+app. post("/Estadisticas_Streamer", async (req: Request, resp: Response) => {
+    try {
+      const { ID_Streamer } = req.body;
+      
+      if (!ID_Streamer) {
+        return resp. status(400).json({ error: "ID_Streamer es requerido" });
+      }
+
+      // Obtener datos del usuario
+      const datosStreamer = await prisma.usuario.findUnique({
+        where: {
+          ID: Number(ID_Streamer)
+        },
+        select: {
+          ID: true,
+          NombreUsuario: true,
+          ImagenPerfil: true,
+          EnVivo: true,
+          Monedas: true,
+          HorasTransmision: true,
+          NivelStreams: true
+        }
+      });
+
+      if (!datosStreamer) {
+        return resp.status(404).json({ error: "Streamer no encontrado" });
+      }
+
+      // Contar espectadores actuales
+      const espectadoresActuales = await prisma.chatStreamer.count({
+        where: {
+          ID_Streamer: Number(ID_Streamer),
+          Viendo: true
+        }
+      });
+
+      // Contar seguidores totales
+      const seguidoresTotales = await prisma.suscripcion.count({
+        where: {
+          ID_Streamer: Number(ID_Streamer)
+        }
+      });
+
+      // Contar total de viewers que han chateado
+      const totalViewers = await prisma.chatStreamer.count({
+        where: {
+          ID_Streamer: Number(ID_Streamer)
+        }
+      });
+
+      resp.status(200).json({
+        streamer: datosStreamer,
+        estadisticas: {
+          espectadoresActuales,
+          seguidoresTotales,
+          totalViewers,
+          enVivo: datosStreamer. EnVivo || false
+        }
+      });
+    } catch (err) {
+      console.error(err);
+      resp.status(400).json({ error: "Error obteniendo estadísticas del streamer" });
+    }
+});
+
+// ENDPOINT: Obtener lista de espectadores actuales (con detalles)
+app.post("/Lista_Espectadores_Actuales", async (req: Request, resp: Response) => {
+    try {
+      const { ID_Streamer } = req.body;
+      
+      if (!ID_Streamer) {
+        return resp.status(400).json({ error: "ID_Streamer es requerido" });
+      }
+
+      // Obtener viewers que están viendo actualmente
+      const espectadores = await prisma.chatStreamer.findMany({
+        where: {
+          ID_Streamer: Number(ID_Streamer),
+          Viendo: true
+        },
+        select: {
+          ID_Viewer: true,
+          NivelViewer: true,
+          Habilitado: true,
+          viewerC: {
+            select: {
+              NombreUsuario: true,
+              ImagenPerfil: true,
+              NivelStreams: true
+            }
+          }
+        }
+      });
+
+      const listaFormateada = espectadores.map((e: typeof espectadores[0]) => ({
+        ID_Viewer: e.ID_Viewer,
+        NombreUsuario: e.viewerC?. NombreUsuario || "Usuario",
+        ImagenPerfil: e.viewerC?.ImagenPerfil || "",
+        NivelViewer: e.NivelViewer || 1,
+        NivelStreams: e.viewerC?.NivelStreams || 0,
+        Habilitado: e.Habilitado
+      }));
+
+      resp.status(200).json({
+        ID_Streamer: Number(ID_Streamer),
+        totalEspectadores: listaFormateada.length,
+        espectadores: listaFormateada
+      });
+    } catch (err) {
+      console.error(err);
+      resp.status(400).json({ error: "Error obteniendo lista de espectadores" });
+    }
+});
+
+// ENDPOINT: Obtener top streamers por espectadores actuales
+app.get("/Top_Streamers_Por_Espectadores", async (req: Request, resp: Response) => {
+    try {
+      // Obtener streamers en vivo
+      const streamersEnVivo = await prisma.usuario.findMany({
+        where: {
+          EnVivo: true
+        },
+        select: {
+          ID: true,
+          NombreUsuario: true,
+          ImagenPerfil: true,
+          NivelStreams: true,
+          streamerCHat: {
+            where: {
+              Viendo: true
+            },
+            select: {
+              ID_Viewer: true
+            }
+          }
+        }
+      });
+
+      // Formatear y ordenar por cantidad de espectadores
+      const ranking = streamersEnVivo
+        .map((streamer: typeof streamersEnVivo[0]) => ({
+          ID: streamer.ID,
+          NombreUsuario: streamer. NombreUsuario,
+          ImagenPerfil: streamer.ImagenPerfil,
+          NivelStreams: streamer.NivelStreams,
+          espectadoresActuales: streamer. streamerCHat?. length || 0
+        }))
+        .sort((a: { espectadoresActuales: number }, b: { espectadoresActuales: number }) => b.espectadoresActuales - a.espectadoresActuales);
+
+      resp.status(200).json({
+        total: ranking.length,
+        streamers: ranking
+      });
+    } catch (err) {
+      console. error(err);
+      resp. status(400).json({ error: "Error obteniendo top streamers" });
+    }
+});
+
 
 // ============================================
 // ENDPOINTS DE USUARIOS
 // ============================================
+
+
+
 
 app.post("/Registrar_Usuario", async (req : Request, resp : Response) => {
     try {
